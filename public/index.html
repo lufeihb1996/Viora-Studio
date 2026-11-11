@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Viora Studio | AI Image Creation</title>
+  <meta name="description" content="Create, explore and save AI images in Viora Studio." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/assets/i18n.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            primary: {
+              0: '#ffffff',
+              100: '#f4f4f5',
+              200: '#e4e4e7',
+              300: '#d4d4d8',
+              400: '#a1a1aa',
+              800: '#1f1f22',
+              900: '#141416',
+              950: '#0f0f11',
+              1000: '#000000',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    body {
+      background-color: #000000;
+      color: #ffffff;
+      overflow-x: hidden;
+    }
+    ::selection {
+      background: #ffffff;
+      color: #000000;
+    }
+    .eased-gradient-up {
+      background: linear-gradient(
+        to top,
+        #000000 0%,
+        rgba(0, 0, 0, 0.94) 14%,
+        rgba(0, 0, 0, 0.76) 28%,
+        rgba(0, 0, 0, 0.45) 48%,
+        rgba(0, 0, 0, 0.18) 68%,
+        rgba(0, 0, 0, 0.05) 84%,
+        rgba(0, 0, 0, 0) 100%
+      );
+    }
+    .hero-radial-vignette {
+      background: radial-gradient(
+        ellipse 82% 70% at 50% 38%,
+        transparent 0%,
+        rgba(0, 0, 0, 0.42) 68%,
+        #000000 100%
+      );
+    }
+    .glass-pill {
+      background: rgba(18, 18, 20, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+    }
+    .glass-nav {
+      background: rgba(8, 8, 10, 0.75);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.85; }
+      50% { opacity: 1; }
+    }
+    .speed-bar-glow {
+      box-shadow: 0 0 32px rgba(255, 255, 255, 0.28);
+      animation: pulseGlow 3s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-black text-white selection:bg-white selection:text-black">
+
+  <!-- ======================= TOP STICKY NAVBAR (Krea 2 Style) ======================= -->
+  <header class="glass-nav fixed inset-x-0 top-0 z-50 transition-all duration-300">
+    <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center gap-6">
+        <a href="#" class="flex items-center gap-2.5 group">
+          <div class="flex size-8 items-center justify-center rounded-lg bg-white text-black font-bold text-sm tracking-tighter transition-transform group-hover:scale-105">
+            V
+          </div>
+          <span class="text-base font-semibold tracking-tight text-white">Viora Studio</span>
+          <span class="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/80 border border-white/10">AI Studio</span>
+        </a>
+
+        <nav class="hidden md:flex items-center gap-1 text-sm text-white/65">
+          <a href="#styles" class="rounded-lg px-3 py-1.5 hover:bg-white/5 hover:text-white transition-colors" data-i18n="nav_styles">Aesthetics</a>
+          <a href="#surprise" class="rounded-lg px-3 py-1.5 hover:bg-white/5 hover:text-white transition-colors" data-i18n="nav_realism">Gallery</a>
+          <a href="#faq" class="rounded-lg px-3 py-1.5 hover:bg-white/5 hover:text-white transition-colors" data-i18n="nav_faq">FAQ</a>
+        </nav>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button id="langToggleBtn" onclick="toggleLanguage()" class="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/85 hover:bg-white/10 transition-colors">
+          EN / 中文
+        </button>
+        <a href="generate.html" class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-black hover:bg-white/90 active:scale-[0.98] transition-all">
+          <span data-i18n="nav_try">Try Viora Studio</span>
+          <svg class="size-3.5" viewBox="0 0 16 16" fill="none"><path d="M3.5 8H12.5M12.5 8L8.5 4M12.5 8L8.5 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================= SECTION 1: HERO (1:1 Krea-2 Structure & Visuals) ======================= -->
+  <section class="relative flex h-svh min-h-[680px] w-full flex-col overflow-hidden bg-black pt-16">
+    <!-- Cross-fading full-bleed background images -->
+    <div id="heroBgContainer" class="pointer-events-none absolute inset-x-0 top-0 h-[calc(100%-90px)] w-full overflow-hidden">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- Radial & Linear Gradients -->
+    <div aria-hidden="true" class="hero-radial-vignette pointer-events-none absolute inset-0 z-10"></div>
+    <div aria-hidden="true" class="eased-gradient-up pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[min(48vh,440px)] min-h-[260px] w-full"></div>
+
+    <!-- Center Hero Typography + Interactive Prompt Bar -->
+    <div class="relative z-20 mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-between px-4 pb-6 pt-12 sm:px-6 lg:pb-10 lg:pt-20">
+
+      <div class="flex flex-col items-center text-center mt-auto mb-auto">
+        <a href="generate.html" class="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/45 px-3.5 py-1 text-xs font-medium text-white/90 backdrop-blur-md hover:bg-white/10 transition-colors">
+          <span class="rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-400/30">New</span>
+          <span data-i18n="hero_badge">Viora Studio is live · Open the workspace →</span>
+        </a>
+
+        <h1 class="text-center text-5xl leading-none font-semibold tracking-[-1.2px] text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.35)] md:text-7xl lg:text-[92px] lg:leading-[98px] lg:tracking-[-2.6px]">
+          Viora Studio
+        </h1>
+        <h2 class="mt-2 max-w-3xl text-center text-xl leading-[1.15] font-semibold tracking-[-0.25px] text-white/90 [text-shadow:0_1px_8px_rgba(0,0,0,0.3)] md:text-2xl lg:mt-3 lg:text-[32px] lg:leading-10 lg:tracking-[-0.5px]" data-i18n="hero_subtitle">
+          a creative space for ideas and images
+        </h2>
+        <p class="mt-3 text-xs text-white/55 font-medium tracking-wide" data-i18n="hero_meta">
+          Your ideas, brought to life.
+        </p>
+      </div>
+
+      <!-- Bottom Interactive Prompt Controller + Thumbnail Strip -->
+      <div class="w-full max-w-4xl space-y-3.5">
+        <div class="glass-pill rounded-2xl p-3.5 sm:p-4 shadow-2xl transition-all">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <span id="heroActiveBadge" class="inline-flex items-center rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/85">
+                  Style reference
+                </span>
+                <span id="heroActiveSpecs" class="text-[11px] font-mono text-white/45">
+                  1344×768
+                </span>
+              </div>
+              <p id="heroActivePrompt" class="text-xs sm:text-sm text-white/90 line-clamp-2 font-normal leading-relaxed"></p>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+              <button onclick="pickRandomHero()" class="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-medium text-white hover:bg-white/10 active:scale-95 transition-all">
+                <svg class="size-3.5 text-white/75" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                <span data-i18n="btn_random">Choose random</span>
+              </button>
+              <button onclick="openStudioWithCurrentHero()" class="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-semibold text-black hover:bg-white/90 active:scale-95 transition-all">
+                <span data-i18n="btn_generate_this">Try in Workspace</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1" id="heroThumbStrip">
+          </div>
+          <a href="#styles" class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-white/50 hover:text-white shrink-0 transition-colors">
+            <span data-i18n="scroll_more">Scroll to learn more</span>
+            <svg class="size-3.5 animate-bounce" viewBox="0 0 16 16" fill="none"><path d="M8 3v10m0 0l-4-4m4 4l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================= SECTION 2: PROMO CARD (Krea 3 Promo Style) ======================= -->
+  <section id="studio-promo" class="px-4 py-10 md:px-8 md:py-16">
+    <div class="mx-auto max-w-6xl">
+      <div class="bg-primary-950 border border-white/[0.08] overflow-hidden rounded-3xl shadow-2xl">
+        <div class="grid grid-cols-1 gap-8 p-6 md:p-10 lg:grid-cols-2 lg:items-center lg:p-12">
+          <div>
+            <span class="bg-white/10 text-white inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium">
+              <span class="size-1.5 rounded-full bg-emerald-400"></span>
+              <span data-i18n="promo_tag">New</span>
+            </span>
+            <h2 class="mt-4 text-[34px] leading-[1.04] font-medium tracking-[-0.03em] text-balance lg:text-[48px]">
+              <span class="text-white" data-i18n="promo_title_1">Viora Studio is here.</span>
+              <span class="text-white/45" data-i18n="promo_title_2"> Our production workspace for high-speed AI image generation.</span>
+            </h2>
+            <p class="mt-4 text-sm sm:text-base text-white/60 leading-relaxed" data-i18n="promo_desc">
+              Expressive aesthetics, optical realism, and fine texture detail. Create and explore your ideas in one workspace.
+            </p>
+            <div class="mt-7 flex flex-wrap items-center gap-3">
+              <a href="generate.html" class="inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-black hover:bg-white/90 transition-all">
+                <span data-i18n="promo_btn_try">Try Viora Studio Workspace</span>
+              </a>
+            </div>
+          </div>
+
+          <!-- Right Preview Collage (Krea Official Press Visuals) -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="group relative overflow-hidden rounded-2xl border border-white/10 aspect-[16/10]">
+              <img src="https://optim-images.krea.ai/https---s-krea-ai-press-krea-3-k3-02-headphones-portrait-png-1024.webp" alt="Portrait Realism" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            </div>
+            <div class="group relative overflow-hidden rounded-2xl border border-white/10 aspect-[16/10]">
+              <img src="https://optim-images.krea.ai/https---s-krea-ai-press-krea-3-k3-09-camera-still-life-webp-1024.webp" alt="Optical Still Life" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            </div>
+            <div class="group relative overflow-hidden rounded-2xl border border-white/10 aspect-[16/10]">
+              <img src="https://optim-images.krea.ai/https---s-krea-ai-press-krea-3-k3-01-y2k-tennis-editorial-png-1024.webp" alt="Editorial Fashion" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            </div>
+            <div class="group relative overflow-hidden rounded-2xl border border-white/10 aspect-[16/10]">
+              <img src="https://optim-images.krea.ai/https---s-krea-ai-press-krea-3-k3-10-coastal-suite-interior-png-1024.webp" alt="Architectural Interior" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= SECTION 3: ANY STYLE YOU CAN IMAGINE ======================= -->
+  <section id="styles" class="bg-black text-white w-full overflow-x-hidden px-4 py-24 md:px-8 md:py-36">
+    <div class="mx-auto max-w-5xl">
+      <div class="mb-14 flex flex-col items-start gap-6 text-left md:grid md:grid-cols-[1.2fr_0.8fr] md:gap-12">
+        <h2 class="w-full text-[40px] leading-none font-medium tracking-[-0.8px] text-white md:text-5xl lg:text-[56px] lg:tracking-[-1.12px]" data-i18n="style_heading">
+          Any style you<br/>can imagine
+        </h2>
+        <p class="text-base sm:text-lg text-white/60 leading-relaxed self-end" data-i18n="style_subheading">
+          Explore visual styles and create images from your own ideas.
+        </p>
+      </div>
+
+      <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2" id="styleTabsContainer">
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="stepStyleSlide(-1)" class="flex size-10 items-center justify-center rounded-full border border-white/15 bg-white/5 hover:bg-white/15 transition-colors" aria-label="Previous style">
+            <svg class="size-4" viewBox="0 0 10 17" fill="none"><path d="M8.5 1.5L1.5 8.5L8.5 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button onclick="stepStyleSlide(1)" class="flex size-10 items-center justify-center rounded-full border border-white/15 bg-white/5 hover:bg-white/15 transition-colors" aria-label="Next style">
+            <svg class="size-4" viewBox="0 0 10 17" fill="none"><path d="M1.5 1.5L8.5 8.5L1.5 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="relative overflow-hidden rounded-3xl border border-white/10 bg-primary-950 shadow-2xl">
+        <div class="grid grid-cols-1 lg:grid-cols-[1.45fr_0.55fr]">
+          <div class="relative aspect-[16/10] bg-black overflow-hidden">
+            <img id="styleMainImage" src="" alt="Style preview" class="h-full w-full object-cover transition-all duration-500" />
+            <div class="absolute top-4 left-4 flex items-center gap-2">
+              <span id="styleLensTag" class="glass-pill rounded-full px-3 py-1 text-xs font-mono text-white"></span>
+            </div>
+          </div>
+          <div class="flex flex-col justify-between p-6 sm:p-8 bg-[#0d0d0f]">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono uppercase tracking-wider text-white/40">Prompt</span>
+                <button onclick="copyStylePrompt()" id="copyStylePromptBtn" class="text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
+                  Copy Prompt
+                </button>
+              </div>
+              <p id="stylePromptText" class="text-sm leading-relaxed text-white/85 font-normal"></p>
+            </div>
+
+            <div class="mt-8 pt-5 border-t border-white/10 space-y-3">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-white/45">Foundation Model</span>
+                <span class="font-mono text-white/90">Viora Studio</span>
+              </div>
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-white/45">Guidance &amp; Steps</span>
+                <span class="font-mono text-emerald-400">High resolution</span>
+              </div>
+              <a href="generate.html" class="mt-3 block text-center w-full rounded-xl bg-white py-2.5 text-xs font-semibold text-black hover:bg-white/90 transition-all" data-i18n="try_this_style">
+                Try out this style
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================= SECTION 4: GENERATE WITH MOODBOARDS (1:1 Krea-2 Section) ======================= -->
+
+
+  <!-- ======================= SECTION 5: NEVER LOSE MOMENTUM ======================= -->
+
+
+  <!-- ======================= SECTION 6: EVERY OUTPUT WILL SURPRISE YOU ======================= -->
+  <section id="surprise" class="relative w-full px-4 py-24 md:px-8 md:py-36 border-t border-white/[0.06]">
+    <div class="mx-auto max-w-5xl">
+      <div class="grid gap-6 md:grid-cols-[1.2fr_0.8fr] md:gap-12 mb-14">
+        <h2 class="text-[40px] leading-none font-medium tracking-[-0.8px] text-white md:text-5xl lg:text-[56px] lg:tracking-[-1.12px]" data-i18n="surprise_heading">
+          Every output<br/>will surprise you
+        </h2>
+        <p class="text-base sm:text-lg text-white/60 leading-relaxed self-end" data-i18n="surprise_desc">
+          Great art pushes boundaries. Simple prompts yield a wide range of high-quality images with authentic optical physics—not just the same airbrushed concept repeated four times.
+        </p>
+      </div>
+
+      <div id="surpriseGalleryGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= SECTION 7: PRICING & API PLANS (For Stripe Verification) ======================= -->
+
+
+  <!-- ======================= SECTION 8: OPEN SOURCE BANNER + FAQ ======================= -->
+  <section class="px-4 py-12 md:px-8 md:py-16">
+    <div class="mx-auto max-w-6xl">
+      <div class="relative overflow-hidden rounded-[32px] border border-white/10 p-8 shadow-2xl md:p-12 lg:p-14">
+        <img src="https://s.krea.ai/k2-landing/cowboy_2.webp" alt="Start building" loading="lazy" class="absolute inset-0 h-full w-full object-cover object-center opacity-50" />
+        <div aria-hidden="true" class="absolute inset-0 bg-black/50"></div>
+        <div class="relative z-10 max-w-3xl space-y-4">
+          <h2 class="text-[32px] leading-tight font-medium text-white md:text-[44px] lg:text-[50px]">
+            Start building with Viora Studio.
+          </h2>
+          <p class="text-sm sm:text-base text-white/75 max-w-2xl leading-relaxed">
+            Open the workspace and start creating.
+          </p>
+          <div class="pt-3 flex flex-wrap gap-3">
+            <a href="generate.html" class="rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-black hover:bg-white/90 transition-all">
+              Open Viora Workspace
+            </a>
+            <a href="#faq" class="rounded-full border border-white/25 bg-black/50 backdrop-blur-md px-5 py-2.5 text-xs font-medium text-white hover:bg-white/10 transition-all">
+              Read Technical FAQ
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Accordion Section -->
+  <section id="faq" class="bg-black px-4 py-20 md:px-8 md:py-28">
+    <div class="mx-auto max-w-4xl space-y-10">
+      <h2 class="bg-gradient-to-b from-white to-white/60 bg-clip-text text-2xl font-medium tracking-[-0.02em] text-transparent md:text-[34px] md:leading-[42px]">
+        Questions people ask about Viora Studio
+      </h2>
+      <div class="divide-y divide-white/10 border-y border-white/10" id="faqContainer">
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= SECTION 9: GIANT FOOTER HERO + DIRECTORY ======================= -->
+  <section class="relative w-full overflow-hidden bg-black pt-24 pb-16">
+    <div class="mx-auto max-w-6xl px-4 text-center space-y-6 relative z-10">
+      <h2 class="mx-auto max-w-4xl text-center text-3xl leading-tight font-medium tracking-[-0.8px] text-white md:text-5xl">
+        Viora Studio powers creatives, studios, and everyday people
+      </h2>
+      <h3 class="text-[44px] leading-none font-semibold tracking-[-1.5px] text-white md:text-7xl lg:text-[86px] lg:tracking-[-2.55px] pt-2">
+        Start generating now.
+      </h3>
+      <div class="pt-4">
+        <a href="generate.html" class="inline-flex h-12 items-center gap-2 rounded-full bg-white px-8 text-sm font-semibold text-black hover:bg-white/90 active:scale-95 transition-all shadow-xl">
+          <span>Try Viora Studio</span>
+          <svg class="size-4" viewBox="0 0 16 16" fill="none"><path d="M3.5 8H12.5M12.5 8L8.5 4M12.5 8L8.5 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <div class="relative mx-auto mt-10 max-w-6xl px-4">
+      <div class="relative w-full overflow-hidden">
+        <img src="https://s.krea.ai/k2-landing/footer.webp" alt="Footer visual" class="h-auto w-full object-cover opacity-80" />
+        <div class="eased-gradient-up absolute inset-x-0 bottom-0 h-[55%]"></div>
+      </div>
+    </div>
+
+    <footer class="relative z-10 mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8 border-t border-white/10">
+      <div class="grid grid-cols-2 gap-8 sm:grid-cols-4 lg:grid-cols-5 pb-12">
+        <div class="col-span-2 lg:col-span-1 space-y-3">
+          <div class="flex items-center gap-2">
+            <div class="flex size-7 items-center justify-center rounded-md bg-white text-black font-bold text-xs">V</div>
+            <span class="text-sm font-semibold text-white">Viora Studio</span>
+          </div>
+          <p class="text-xs text-white/45 leading-relaxed">
+            AI image generation &amp; style control foundation platform.
+          </p>
+          <p class="text-[11px] font-mono text-white/40">
+            Support: <a href="mailto:lufeihb1996@gmail.com" class="underline hover:text-white">lufeihb1996@gmail.com</a>
+          </p>
+        </div>
+
+        <div>
+          <h4 class="text-xs font-semibold uppercase tracking-wider text-white/80 mb-3">Create</h4>
+          <ul class="space-y-2 text-xs text-white/50">
+            <li><a href="generate.html" class="hover:text-white">Viora Studio Generator</a></li>
+
+            <li><a href="#styles" class="hover:text-white">Style Control</a></li>
+
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="text-xs font-semibold uppercase tracking-wider text-white/80 mb-3">Specifications</h4>
+          <ul class="space-y-2 text-xs text-white/50">
+
+
+            <li><a href="#surprise" class="hover:text-white">Creative image generation</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="text-xs font-semibold uppercase tracking-wider text-white/80 mb-3">About</h4>
+          <ul class="space-y-2 text-xs text-white/50">
+
+
+
+
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="text-xs font-semibold uppercase tracking-wider text-white/80 mb-3">Legal &amp; Compliance</h4>
+          <ul class="space-y-2 text-xs text-white/50">
+            <li><button onclick="openLegalModal('terms')" class="hover:text-white text-left">Terms of Service</button></li>
+            <li><button onclick="openLegalModal('privacy')" class="hover:text-white text-left">Privacy Policy</button></li>
+
+            <li><button onclick="openLegalModal('contact')" class="hover:text-white text-left">Contact &amp; Business Info</button></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-between border-t border-white/10 pt-6 text-xs text-white/40 gap-4">
+        <p>© 2026 Viora Studio. All rights reserved.</p>
+        <div class="flex items-center gap-4">
+          <span>Viora Studio</span>
+          <span>·</span>
+          <span>Creative image workspace</span>
+        </div>
+      </div>
+    </footer>
+  </section>
+
+  <!-- ======================= CHECKOUT / LEGAL MODALS ======================= -->
+  <div id="infoModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-md p-4">
+    <div class="relative w-full max-w-lg rounded-3xl border border-white/15 bg-[#111114] p-6 sm:p-8 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <h3 id="infoModalTitle" class="text-lg font-semibold text-white">Modal Title</h3>
+        <button onclick="closeInfoModal()" class="rounded-full p-1 text-white/50 hover:bg-white/10 hover:text-white">✕</button>
+      </div>
+      <div id="infoModalBody" class="py-5 text-xs sm:text-sm text-white/75 space-y-3 leading-relaxed max-h-[65vh] overflow-y-auto">
+      </div>
+      <div class="pt-3 border-t border-white/10 flex justify-end">
+        <button onclick="closeInfoModal()" class="rounded-full bg-white px-5 py-2 text-xs font-semibold text-black hover:bg-white/90">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lightbox Modal -->
+  <div id="lightboxModal" onclick="closeLightbox()" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 backdrop-blur-xl p-4 cursor-zoom-out">
+    <img id="lightboxImg" src="" alt="Full resolution preview" class="max-h-[90vh] max-w-[92vw] rounded-2xl border border-white/15 shadow-2xl object-contain" />
+  </div>
+
+  <!-- ======================= SCRIPTS (Using Official Krea-2 Landing Artwork URLs) ======================= -->
+  <script>
+    const HERO_ITEMS = [
+      {
+        id: 'dancer',
+        title: 'Contemporary Dancer',
+        badge: 'Style reference',
+        specs: '1344×768',
+        img: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-dancer-png-1024.webp',
+        prompt: 'a male contemporary dancer focused on dancing, Contrapposto pose, body contorted, wide angle, one hand outstretched mid-dance towards the camera, his face turned away from the camera, high contrast'
+      },
+      {
+        id: 'yellowrunners',
+        title: 'Risograph Runners',
+        badge: 'Graphic Illustration',
+        specs: '1344×768',
+        img: 'https://optim-images.krea.ai/https---s-krea-ai-yellowrunners-png-1024.webp',
+        prompt: 'People running. extremely exaggerated wide camera angle, exaggerated shapes. risograph poster. graphic illustration. dynamic composition.'
+      },
+      {
+        id: 'samurai',
+        title: 'Armored Samurai',
+        badge: 'Cinematic Concept',
+        specs: '1344×768',
+        img: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-samurai-png-1024.webp',
+        prompt: 'Cinematic wide-angle shot of an ornate samurai warrior in dramatic chiaroscuro lighting, rich metallic textures, atmospheric mist.'
+      },
+      {
+        id: 'greenriders',
+        title: 'Elven Tiger Rider',
+        badge: 'Expressive Design',
+        specs: '1344×768',
+        img: 'https://optim-images.krea.ai/https---s-krea-ai-greenriders-png-1024.webp',
+        prompt: 'Fantasy concept art of a dark blue skinned elven archer riding a white tiger, solid green backdrop, flat graphic design, distorted proportions and highly dynamic expressive composition'
+      },
+      {
+        id: 'cowboy1',
+        title: 'Desert Cowboy',
+        badge: '35mm Film Look',
+        specs: '1344×768',
+        img: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-cowboy-1-webp.webp',
+        prompt: 'Male cowboy riding horse through the desert, close up shot, golden hour dust particles, authentic 35mm film grain.'
+      },
+      {
+        id: 'tiger',
+        title: 'Bengal Tiger Study',
+        badge: 'Fine Detail',
+        specs: '1344×768',
+        img: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-tiger-png-1024.webp',
+        prompt: 'Close-up expressive wildlife study of a tiger in motion, fine fur texture, dramatic rim lighting and deep contrast.'
+      }
+    ];
+
+    const REFERENCE_PACKS = [
+      {
+        name: 'Cyber Zine',
+        title: 'Cyber Zine',
+        subtitle: 'Bold graphic halftone & editorial print aesthetics',
+        img1: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-zine-mb-output-1-webp-1024.webp',
+        img2: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-zine-mb-output-2-webp-1024.webp',
+        img3: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-zine-mb-output-3-webp-1024.webp',
+        caption: 'Example outputs: Model with sunglasses, Portrait of a horse, Chameleon wearing a sweater'
+      },
+      {
+        name: 'Minimalist Ink',
+        title: 'Minimalist Ink',
+        subtitle: 'Fluid calligraphy brushwork & high-contrast sumi-e',
+        img1: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-ink-mb-output-1-webp-1024.webp',
+        img2: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-ink-mb-output-2-webp-1024.webp',
+        img3: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-ink-mb-output-3-webp-1024.webp',
+        caption: 'Curated ink wash reference pack applied to arbitrary prompts'
+      },
+      {
+        name: 'Futurist Glam',
+        title: 'Futurist Glam',
+        subtitle: 'Iridescent chrome reflections & high-fashion studio lighting',
+        img1: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-futurism-mb-output1-webp-1024.webp',
+        img2: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-futurism-mb-output3-webp-1024.webp',
+        img3: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-f2-mb-1-webp-512.webp',
+        caption: 'Consistent specular highlights and editorial color grading'
+      },
+      {
+        name: 'Thermal Airbrush',
+        title: 'Thermal Airbrush',
+        subtitle: 'Infrared heat-map palettes & smooth gradient airbrushing',
+        img1: 'https://optim-images.krea.ai/https---s-krea-ai-thermal-image-22929-png-512.webp',
+        img2: 'https://optim-images.krea.ai/https---s-krea-ai-thermal-image-22934-png-512.webp',
+        img3: 'https://optim-images.krea.ai/https---s-krea-ai-thermal-image-22935-png-512.webp',
+        caption: 'Multi-image thermal color transfer across diverse subjects'
+      }
+    ];
+
+    const SURPRISE_HORSES = [
+      { img: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-k2-horse-1-webp-512.webp', title: 'Prompt: horse rearing #1' },
+      { img: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-k2-horse-2-webp-512.webp', title: 'Prompt: horse rearing #2' },
+      { img: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-k2-horse-3-webp-512.webp', title: 'Prompt: horse rearing #3' },
+      { img: 'https://optim-images.krea.ai/https---s-krea-ai-k2-landing-k2-horse-4-webp-512.webp', title: 'Prompt: horse rearing #4' }
+    ];
+
+    const FAQ_ITEMS = [
+      {
+        q: 'What is Viora Studio?',
+        a: 'Viora Studio is an AI image workspace for exploring ideas and saving your creations.'
+      },
+      {
+        q: 'How is Viora Studio different from other AI image generators?',
+        a: 'Describe what you want to create, choose an aspect ratio, and explore different results.'
+      },
+      {
+        q: 'What can creative teams use Viora Studio for?',
+        a: 'Creative teams can use Viora Studio for campaign concepts, product imagery, storyboards, brand exploration, editorial art direction, game concepts, and fast visual iteration.'
+      },
+      {
+        q: 'Can I upload reference images?',
+        a: 'The current workspace supports text prompts. Reference-image features are not yet available.'
+      },
+      {
+        q: 'Is payment available?',
+        a: 'Payment and subscription features are not available yet.'
+      }
+    ];
+
+    let activeHeroIdx = 0;
+    let activeStyleIdx = 0;
+    let activePackIdx = 0;
+    let heroInterval = null;
+    let currentLang = 'en';
+
+    function initPage() {
+      renderHero();
+      renderStyleSection();
+      renderGallery();
+      renderFAQs();
+
+      heroInterval = setInterval(() => {
+        setHeroIndex((activeHeroIdx + 1) % HERO_ITEMS.length);
+      }, 6000);
+    }
+
+    function renderHero() {
+      const bgContainer = document.getElementById('heroBgContainer');
+      const thumbStrip = document.getElementById('heroThumbStrip');
+
+      bgContainer.innerHTML = HERO_ITEMS.map((item, idx) => `
+        <img id="heroBg_${idx}" src="${item.img}" alt="${item.title}" draggable="false"
+          class="pointer-events-none absolute inset-0 h-full w-full object-cover object-top brightness-[0.85] transition-opacity duration-700 ease-out"
+          style="opacity: ${idx === activeHeroIdx ? '1' : '0'};" />
+      `).join('');
+
+      thumbStrip.innerHTML = HERO_ITEMS.map((item, idx) => `
+        <button onclick="selectHeroManual(${idx})" id="heroThumb_${idx}"
+          class="relative h-12 w-20 shrink-0 overflow-hidden rounded-xl border transition-all duration-200 ${idx === activeHeroIdx ? 'border-white scale-105 ring-2 ring-white/30' : 'border-white/20 opacity-55 hover:opacity-90'}">
+          <img src="${item.img}" alt="${item.title}" class="h-full w-full object-cover" />
+        </button>
+      `).join('');
+
+      updateHeroText();
+    }
+
+    function setHeroIndex(idx) {
+      activeHeroIdx = idx;
+      for (let i = 0; i < HERO_ITEMS.length; i++) {
+        const bg = document.getElementById(`heroBg_${i}`);
+        const th = document.getElementById(`heroThumb_${i}`);
+        if (bg) bg.style.opacity = i === idx ? '1' : '0';
+        if (th) {
+          th.className = `relative h-12 w-20 shrink-0 overflow-hidden rounded-xl border transition-all duration-200 ${i === idx ? 'border-white scale-105 ring-2 ring-white/30' : 'border-white/20 opacity-55 hover:opacity-90'}`;
+        }
+      }
+      updateHeroText();
+    }
+
+    function selectHeroManual(idx) {
+      if (heroInterval) clearInterval(heroInterval);
+      setHeroIndex(idx);
+    }
+
+    function pickRandomHero() {
+      if (heroInterval) clearInterval(heroInterval);
+      let next = Math.floor(Math.random() * HERO_ITEMS.length);
+      if (next === activeHeroIdx) next = (next + 1) % HERO_ITEMS.length;
+      setHeroIndex(next);
+    }
+
+    function updateHeroText() {
+      const item = HERO_ITEMS[activeHeroIdx];
+      document.getElementById('heroActiveBadge').textContent = item.badge;
+      document.getElementById('heroActiveSpecs').textContent = item.specs;
+      document.getElementById('heroActivePrompt').textContent = item.prompt;
+    }
+
+    function openStudioWithCurrentHero() {
+      const item = HERO_ITEMS[activeHeroIdx];
+      window.location.href = `generate.html?prompt=${encodeURIComponent(item.prompt)}`;
+    }
+
+    function renderStyleSection() {
+      const tabs = document.getElementById('styleTabsContainer');
+      tabs.innerHTML = HERO_ITEMS.map((item, idx) => `
+        <button onclick="setStyleSlide(${idx})"
+          class="rounded-full px-4 py-1.5 text-xs font-medium transition-all ${idx === activeStyleIdx ? 'bg-white text-black font-semibold' : 'border border-white/15 bg-white/5 text-white/70 hover:text-white'}">
+          ${item.title}
+        </button>
+      `).join('');
+
+      const current = HERO_ITEMS[activeStyleIdx];
+      document.getElementById('styleMainImage').src = current.img;
+      document.getElementById('styleLensTag').textContent = current.specs;
+      document.getElementById('stylePromptText').textContent = current.prompt;
+    }
+
+    function setStyleSlide(idx) {
+      activeStyleIdx = idx;
+      renderStyleSection();
+    }
+
+    function stepStyleSlide(delta) {
+      activeStyleIdx = (activeStyleIdx + delta + HERO_ITEMS.length) % HERO_ITEMS.length;
+      renderStyleSection();
+    }
+
+    function copyStylePrompt() {
+      const text = document.getElementById('stylePromptText').textContent;
+      navigator.clipboard.writeText(text);
+      const btn = document.getElementById('copyStylePromptBtn');
+      btn.textContent = 'Copied ✓';
+      setTimeout(() => { btn.textContent = 'Copy Prompt'; }, 1800);
+    }
+
+    function renderReferencePacks() {
+      const container = document.getElementById('packButtonsContainer');
+      container.innerHTML = REFERENCE_PACKS.map((pack, idx) => `
+        <button onclick="selectReferencePack(${idx})"
+          class="rounded-xl px-4 py-2 text-xs font-medium transition-all ${idx === activePackIdx ? 'bg-white text-black font-semibold shadow-lg' : 'border border-white/15 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'}">
+          ${pack.name}
+        </button>
+      `).join('');
+
+      const p = REFERENCE_PACKS[activePackIdx];
+      document.getElementById('packTitle').textContent = p.title;
+      document.getElementById('packSubtitle').textContent = p.subtitle;
+      document.getElementById('packImg1').src = p.img1;
+      document.getElementById('packImg2').src = p.img2;
+      document.getElementById('packImg3').src = p.img3;
+      document.getElementById('packCaption').textContent = p.caption;
+    }
+
+    function selectReferencePack(idx) {
+      activePackIdx = idx;
+      renderReferencePacks();
+    }
+
+    function renderGallery() {
+      const grid = document.getElementById('surpriseGalleryGrid');
+      grid.innerHTML = SURPRISE_HORSES.map(item => `
+        <div class="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d10] cursor-zoom-in" onclick="openLightbox('${item.img}')">
+          <div class="aspect-square w-full overflow-hidden bg-black">
+            <img src="${item.img}" alt="${item.title}" loading="lazy" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          </div>
+          <div class="p-3 flex items-center justify-between">
+            <span class="text-xs text-white/75">${item.title}</span>
+            <span class="text-[10px] font-mono text-emerald-400">Viora Studio</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function setCurrency(curr) {
+      const btnUSD = document.getElementById('currUSD');
+      const btnHKD = document.getElementById('currHKD');
+      if (curr === 'USD') {
+        btnUSD.className = 'rounded-full bg-white px-4 py-1 text-xs font-semibold text-black transition-all';
+        btnHKD.className = 'rounded-full px-4 py-1 text-xs font-medium text-white/65 hover:text-white transition-all';
+      } else {
+        btnHKD.className = 'rounded-full bg-white px-4 py-1 text-xs font-semibold text-black transition-all';
+        btnUSD.className = 'rounded-full px-4 py-1 text-xs font-medium text-white/65 hover:text-white transition-all';
+      }
+      document.querySelectorAll('.price-val').forEach(el => {
+        el.textContent = curr === 'USD' ? el.getAttribute('data-usd') : el.getAttribute('data-hkd');
+      });
+    }
+
+    function renderFAQs() {
+      const container = document.getElementById('faqContainer');
+      container.innerHTML = FAQ_ITEMS.map((item, idx) => `
+        <div class="py-5">
+          <button onclick="toggleFAQ(${idx})" class="flex w-full items-center justify-between text-left text-base font-medium tracking-[-0.3px] text-white hover:text-white/80 md:text-xl transition-colors">
+            <span>${item.q}</span>
+            <svg id="faqIcon_${idx}" class="size-5 shrink-0 text-white/60 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+          </button>
+          <div id="faqAns_${idx}" class="hidden pt-3 text-sm text-white/60 leading-relaxed max-w-3xl">
+            ${item.a}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function toggleFAQ(idx) {
+      const ans = document.getElementById(`faqAns_${idx}`);
+      const icon = document.getElementById(`faqIcon_${idx}`);
+      if (ans.classList.contains('hidden')) {
+        ans.classList.remove('hidden');
+        icon.classList.add('rotate-45');
+      } else {
+        ans.classList.add('hidden');
+        icon.classList.remove('rotate-45');
+      }
+    }
+
+    function openCheckoutModal(planName, priceText) {
+      document.getElementById('infoModalTitle').textContent = `Subscribe — ${planName}`;
+      document.getElementById('infoModalBody').innerHTML = `
+        <div class="rounded-2xl border border-white/10 bg-black p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-white">${planName}</span>
+            <span class="font-mono text-emerald-400">${priceText} / month</span>
+          </div>
+          <p class="text-xs text-white/55">Plan availability and payment features will be announced when ready.</p>
+        </div>
+        <div class="space-y-2 pt-2">
+          <label class="block text-xs text-white/60">Account Email for Instant Delivery</label>
+          <input type="email" placeholder="you@example.com" class="w-full rounded-xl border border-white/15 bg-black px-3.5 py-2.5 text-xs text-white" />
+        </div>
+        <div class="pt-3">
+          <button onclick="alert('Stripe Checkout session ready.')" class="w-full rounded-full bg-white py-3 text-xs font-semibold text-black hover:bg-white/90">
+            Proceed to Stripe Secure Checkout →
+          </button>
+        </div>
+      `;
+      const m = document.getElementById('infoModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function openLegalModal(type) {
+      const titles = {
+        terms: 'Terms of Service',
+        privacy: 'Privacy Policy',
+        refund: 'Refund & Cancellation Policy',
+        delivery: 'Digital Fulfillment & Delivery Policy',
+        contact: 'Contact & Merchant Information'
+      };
+      const bodies = {
+        terms: `<p><strong>1. Overview:</strong> Viora Studio provides AI image generation software.</p><p><strong>2. Commercial License:</strong> Usage rights depend on applicable model terms and law.</p>`,
+        privacy: `<p><strong>1. Data Collection:</strong> Your account details, prompts, and generated images are stored to provide the service.</p><p><strong>2. Payment Security:</strong> Payment features are not currently available.</p>`,
+        refund: `<p><strong>1. 7-Day Money-Back Guarantee:</strong> Unused subscription credits within 7 days of purchase are eligible for a full 100% refund.</p><p><strong>2. Cancellation:</strong> Cancel anytime with one click.</p>`,
+        delivery: `<p><strong>Instant Digital SaaS Fulfillment:</strong> Credits and studio features are provisioned to your account instantaneously upon payment.</p>`,
+        contact: `<p><strong>Studio Name:</strong> Viora Studio</p><p><strong>Support Email:</strong> lufeihb1996@gmail.com</p>`
+      };
+      document.getElementById('infoModalTitle').textContent = titles[type];
+      document.getElementById('infoModalBody').innerHTML = bodies[type];
+      const m = document.getElementById('infoModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function closeInfoModal() {
+      const m = document.getElementById('infoModal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    function openLightbox(src) {
+      document.getElementById('lightboxImg').src = src;
+      const m = document.getElementById('lightboxModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function closeLightbox() {
+      const m = document.getElementById('lightboxModal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    function toggleLanguage() { window.VioraI18n.toggle(); }
+
+    window.addEventListener('DOMContentLoaded', initPage);
+  </script>
+</body>
+</html>

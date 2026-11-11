@@ -1,0 +1,12 @@
+{
+  "name": "moss-krea-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone MOSS-Image 5B SFT (SLG=22) Web Studio (Krea 2 UI + Colab FIFO Queue)",
+  "dependencies": {
+    "@supabase/supabase-js": "2.119.0"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}

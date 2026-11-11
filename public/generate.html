@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Viora Studio | AI Image Creation</title>
+  <meta name="description" content="Create and save images with Viora Studio." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/assets/i18n.js"></script>
+  <script src="/assets/supabase.js"></script>
+  <script src="/assets/supabase-config.js"></script>
+  <script src="/assets/cloud.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            primary: {
+              0: '#ffffff',
+              100: '#f4f4f5',
+              200: '#e4e4e7',
+              300: '#d4d4d8',
+              400: '#a1a1aa',
+              800: '#1f1f22',
+              900: '#141416',
+              950: '#0b0b0d',
+              1000: '#000000',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    body {
+      background-color: #0b0b0d;
+      color: #ffffff;
+      overflow: hidden;
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .glass-dock {
+      background: rgba(20, 20, 24, 0.86);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.78), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    }
+    .glass-popover {
+      background: rgba(18, 18, 22, 0.96);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.85);
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .chatgpt-shimmer-text {
+      background: linear-gradient(90deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.98) 50%, rgba(255,255,255,0.45) 100%);
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: shimmer 2.2s infinite linear;
+    }
+    @keyframes chatgptAurora {
+      0% { background-position: 0% 50%; filter: hue-rotate(0deg); }
+      50% { background-position: 100% 50%; filter: hue-rotate(25deg); }
+      100% { background-position: 0% 50%; filter: hue-rotate(0deg); }
+    }
+    .chatgpt-aurora-canvas {
+      background:
+        radial-gradient(circle at 22% 28%, rgba(99, 102, 241, 0.42), transparent 52%),
+        radial-gradient(circle at 78% 32%, rgba(16, 185, 129, 0.36), transparent 55%),
+        radial-gradient(circle at 48% 78%, rgba(236, 72, 153, 0.32), transparent 55%),
+        radial-gradient(circle at 75% 75%, rgba(56, 189, 248, 0.30), transparent 50%),
+        linear-gradient(135deg, #12131c 0%, #191b28 50%, #101218 100%);
+      background-size: 200% 200%;
+      animation: chatgptAurora 6s ease-in-out infinite;
+    }
+    @keyframes chatgptSweep {
+      0% { transform: translateX(-120%) skewX(-18deg); }
+      100% { transform: translateX(220%) skewX(-18deg); }
+    }
+    .chatgpt-sweep-bar {
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+      animation: chatgptSweep 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+    @keyframes chatgptUnblur {
+      0% { filter: blur(22px) saturate(1.2); transform: scale(1.02); opacity: 0.7; }
+      100% { filter: blur(0px) saturate(1); transform: scale(1); opacity: 1; }
+    }
+    .chatgpt-unblur-img {
+      animation: chatgptUnblur 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+  </style>
+</head>
+<body class="flex h-svh w-screen overflow-hidden bg-primary-950 text-white select-none">
+
+  <div id="cloudAuth" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
+    <div class="w-full max-w-sm space-y-4 rounded-2xl border border-white/15 bg-[#161619] p-6 shadow-xl">
+      <div class="flex items-center justify-between gap-3"><h2 class="text-xl font-semibold">Sign in to Viora Studio</h2><button type="button" onclick="VioraI18n.toggle()" class="shrink-0 rounded-lg border border-white/20 px-2 py-1 text-xs text-white/75">中文 / EN</button></div>
+      <p class="text-sm text-white/60">Your images and history are saved privately to your account.</p>
+      <input id="cloudUsername" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Username" class="w-full rounded-lg border border-white/20 bg-black px-3 py-2 text-sm" />
+      <input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Password" class="w-full rounded-lg border border-white/20 bg-black px-3 py-2 text-sm" />
+      <p class="text-xs text-white/50">Username: 3–24 letters, numbers, or underscores. Password: at least 8 characters.</p>
+      <p id="cloudAuthMessage" role="status" class="text-xs text-amber-300"></p>
+      <div class="flex gap-2"><button id="cloudSignInBtn" onclick="cloudSignIn(false)" class="rounded-lg bg-white px-4 py-2 text-sm text-black">Sign in</button><button id="cloudSignUpBtn" onclick="cloudSignIn(true)" class="rounded-lg border border-white/30 px-4 py-2 text-sm">Create account</button></div>
+    </div>
+  </div>
+
+  <!-- ======================= 1. LEFT SIDEBAR (1:1 Krea /image/k3-edit Sidebar) ======================= -->
+  <aside id="leftSidebar" class="flex h-svh w-[224px] shrink-0 flex-col justify-between border-r border-white/[0.07] bg-[#08080a] px-2.5 py-3 transition-all duration-200 z-30">
+    <div class="space-y-4">
+      <div class="flex items-center justify-between px-1.5">
+        <a href="index.html" class="flex items-center gap-2.5 group">
+          <div class="flex size-7 items-center justify-center rounded-lg bg-white text-black font-bold text-xs tracking-tighter group-hover:scale-105 transition-transform">
+            V
+          </div>
+          <span class="sidebar-label text-sm font-semibold tracking-tight text-white">Viora</span>
+          <span class="sidebar-label rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-mono text-white/70">Studio</span>
+        </a>
+        <button onclick="toggleLeftSidebar()" class="rounded-lg p-1.5 text-white/45 hover:bg-white/5 hover:text-white transition-colors" title="Toggle Sidebar">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+        </button>
+      </div>
+
+      <!-- Navigation List (Pure MOSS-5B Text-to-Image Only) -->
+      <nav class="space-y-0.5">
+        <a href="index.html" class="flex h-9 items-center gap-3 rounded-lg px-2.5 text-xs font-normal text-white/60 hover:bg-white/[0.06] hover:text-white transition-colors">
+          <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span class="sidebar-label truncate">Home</span>
+        </a>
+
+        <button class="w-full flex h-9 items-center justify-between rounded-lg bg-white/[0.09] px-2.5 text-xs font-medium text-white border border-white/10 transition-colors">
+          <div class="flex items-center gap-3 truncate">
+            <svg class="size-4 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            <span class="sidebar-label truncate">Create images</span>
+          </div>
+          <span class="sidebar-label rounded bg-emerald-400/20 px-1.5 py-0.5 text-[9px] font-mono text-emerald-300">AI</span>
+        </button>
+
+
+      </nav>
+    </div>
+
+    <!-- Bottom Status & Upgrade -->
+    <div class="space-y-2 pt-3 border-t border-white/[0.07]">
+      <div class="sidebar-label rounded-xl bg-white/[0.04] border border-white/[0.07] p-3 space-y-1.5">
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-white/60">Engine</span>
+          <span class="font-mono text-[11px] font-semibold text-emerald-400">Viora Studio</span>
+        </div>
+        <p class="text-[10px] text-white/40 font-mono">Creative image workspace</p>
+        <p id="queueStatusLabel" data-i18n-skip class="text-[10px] text-white/55">正在检查队列…</p>
+      </div>
+
+      <div class="sidebar-label text-xs text-white/60 truncate" id="cloudAccount" data-i18n-skip></div>
+      <button onclick="cloudSignOut()" class="sidebar-label text-xs text-white/60 hover:text-white">Sign out</button>
+
+    </div>
+  </aside>
+
+  <!-- ======================= 2. MAIN WORKSPACE AREA ======================= -->
+  <main class="relative flex min-w-0 flex-1 flex-col h-svh overflow-hidden bg-primary-950">
+
+    <!-- Top Floating Bar: Model Selector (Left) + ComfyUI Server Status (Right) -->
+    <div class="z-30 flex shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#0b0b0d]/90 px-4 py-3 backdrop-blur-xl">
+      <div class="relative">
+        <div class="inline-flex h-9 items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-sm font-normal">
+          <span class="text-white/45 text-xs">Model</span>
+          <span class="font-medium text-white">Viora Studio</span>
+          <span class="rounded bg-emerald-400/15 px-1.5 py-0.5 text-[10px] font-mono text-emerald-300 border border-emerald-400/25">AI</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="VioraI18n.toggle()" class="inline-flex h-9 items-center rounded-xl border border-white/10 px-3 text-xs text-white/80 hover:bg-white/10">中文 / EN</button>
+        <div class="inline-flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-white/85">
+          <span id="topComfyDot" class="size-2 rounded-full bg-amber-400"></span>
+          <span id="topComfyLabel">Server status</span>
+        </div>
+        <button onclick="refreshWorkspaceImages()" class="inline-flex h-9 items-center rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-white/80 hover:bg-white/10 transition-colors" title="Refresh Feed">
+          ↻
+        </button>
+      </div>
+    </div>
+
+    <!-- Center Scrollable Generation Feed -->
+    <div id="feedScrollContainer" class="min-h-0 flex-1 overflow-y-auto px-4 pt-8 pb-52 md:px-8">
+      <h1 class="sr-only">Create images with Viora Studio</h1>
+
+      <!-- Empty State (Shown when no images generated yet in this clean workspace) -->
+      <div id="emptyCanvasState" class="mx-auto flex max-w-2xl flex-col items-center justify-center py-10 text-center space-y-5">
+        <div class="flex size-14 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.04] text-xl font-bold text-white shadow-xl">
+          V
+        </div>
+        <div class="space-y-2">
+          <h2 class="text-2xl font-semibold tracking-tight text-white">Create images with Viora Studio</h2>
+          <p class="text-xs sm:text-sm text-white/50 max-w-lg leading-relaxed">
+            Describe your idea below or choose a prompt to start creating.
+          </p>
+        </div>
+
+        <!-- Starter Formula Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full pt-2 text-left">
+          <button onclick="fillStarterPrompt('An unpolished, candid iPhone 16 Pro horizontal 16:9 snapshot at night on a city street, 24mm wide lens, deep depth of field f/5.6, natural skin micro-texture with fine vellus hair, zero airbrushing.', '16:9')" class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 hover:border-white/25 hover:bg-white/[0.05] transition-all">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-semibold text-white">iPhone 16 Pro Candid</span>
+              <span class="text-[10px] font-mono text-emerald-400">16:9 · 1344×768</span>
+            </div>
+            <p class="text-[11px] text-white/50 line-clamp-2">Raw unedited 24mm f/5.6 deep focus smartphone photography with physiological skin texture.</p>
+          </button>
+
+          <button onclick="fillStarterPrompt('Candid 35mm cinematic portrait photography shot on Leica M6 with a 50mm lens at f/1.8, natural golden hour sunlight, authentic skin pores and fine facial vellus hair, subtle Kodak Portra 400 organic film grain.', '9:16')" class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 hover:border-white/25 hover:bg-white/[0.05] transition-all">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-semibold text-white">Leica M6 35mm Documentary</span>
+              <span class="text-[10px] font-mono text-emerald-400">9:16 · 896×1152</span>
+            </div>
+            <p class="text-[11px] text-white/50 line-clamp-2">50mm f/1.8 optical depth with organic Kodak Portra film grain and zero plastic retouching.</p>
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Job Progress Card -->
+      <div id="activeJobBanner" class="mx-auto mb-6 hidden w-full max-w-5xl rounded-3xl border border-emerald-400/30 bg-[#101015] p-5 shadow-2xl">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2.5">
+            <span class="size-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <span id="activeJobTitle" class="text-xs font-mono font-semibold text-emerald-300">Creating your image...</span>
+          </div>
+          <span id="activeJobPct" class="text-xs font-mono text-white/70">0%</span>
+        </div>
+        <div class="h-2 w-full overflow-hidden rounded-full bg-white/10">
+          <div id="activeJobBar" class="h-full w-[5%] rounded-full bg-emerald-400 transition-all duration-300"></div>
+        </div>
+        <p id="activeJobPrompt" class="mt-2.5 text-xs text-white/55 truncate"></p>
+      </div>
+
+      <!-- Real Generated Images Feed List -->
+      <ul id="generationFeedList" class="mx-auto flex w-full max-w-2xl flex-col gap-5">
+        <!-- Populated strictly from the dedicated MOSS-5B Studio Workspace scene -->
+      </ul>
+    </div>
+
+    <!-- ======================= 3. BOTTOM FLOATING PROMPT COMPOSER DOCK ======================= -->
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex flex-col items-center px-4 pb-4 pt-6 bg-gradient-to-t from-[#0b0b0d] via-[#0b0b0d]/90 to-transparent">
+
+      <!-- Quick Style Tag Pills -->
+      <div class="pointer-events-auto mb-2.5 flex items-center gap-1.5 overflow-x-auto max-w-3xl scrollbar-hide py-0.5">
+        <button onclick="appendPromptFormula('Raw unedited iPhone 16 Pro candid photo, 24mm wide lens, f/5.6 deep depth of field, natural skin micro-texture with fine vellus hair, zero airbrushing')" class="shrink-0 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-white/70 hover:border-white/30 hover:text-white transition-all">
+          + iPhone 16 Pro Candid
+        </button>
+        <button onclick="appendPromptFormula('Candid 35mm cinematic portrait shot on Leica M6 with 50mm f/1.8 lens, natural Kodak Portra 400 grain, physiological skin pores')" class="shrink-0 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-white/70 hover:border-white/30 hover:text-white transition-all">
+          + Leica M6 35mm Film
+        </button>
+        <button onclick="appendPromptFormula('16:9 widescreen cinematic frame, anamorphic lens, dramatic volumetric lighting, high contrast')" class="shrink-0 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-white/70 hover:border-white/30 hover:text-white transition-all">
+          + 16:9 Cinema Frame
+        </button>
+      </div>
+
+      <!-- Main Floating Prompt Box -->
+      <div class="glass-dock pointer-events-auto w-full max-w-3xl rounded-3xl p-3 transition-all focus-within:border-white/25">
+        <p id="queueNotice" data-i18n-skip role="status" class="px-1.5 pb-2 text-xs text-white/60">正在检查队列…</p>
+        <div class="px-1.5">
+          <textarea id="workspacePromptInput" rows="2"
+            placeholder="Describe the image you want to create... (Ctrl + Enter to generate)"
+            onkeydown="handlePromptKeydown(event)"
+            class="w-full resize-none bg-transparent text-xs sm:text-sm text-white placeholder-white/35 focus:outline-none leading-relaxed select-text"></textarea>
+        </div>
+
+        <!-- Bottom Controls Bar inside Dock -->
+        <div class="mt-2 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/[0.07]">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <!-- Aspect Ratio Selector (Matches config/models.json moss_image_5b aspect_ratios) -->
+            <select id="aspectRatioSelect" class="h-8 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 text-xs font-mono text-white/85 focus:outline-none">
+              <option value="16:9" class="bg-black">16:9 · 1344×768</option>
+              <option value="9:16" class="bg-black">9:16 · 896×1152</option>
+              <option value="1:1" class="bg-black">1:1 · 1024×1024</option>
+            </select>
+
+            <!-- Steps Input -->
+            <div class="inline-flex h-8 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 text-xs font-mono text-white/75">
+              <span class="text-white/40">Steps</span>
+              <input id="stepsInput" type="number" min="10" max="60" value="35" class="w-10 bg-transparent text-center text-white focus:outline-none" />
+            </div>
+
+            <!-- CFG Input -->
+            <div class="inline-flex h-8 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 text-xs font-mono text-white/75">
+              <span class="text-white/40">Guidance</span>
+              <input id="cfgInput" type="number" step="0.1" min="1.0" max="10.0" value="2.8" class="w-12 bg-transparent text-center text-emerald-400 font-semibold focus:outline-none" />
+            </div>
+
+            <!-- Seed Input -->
+            <div class="inline-flex h-8 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 text-xs font-mono text-white/75">
+              <span class="text-white/40">Seed</span>
+              <input id="seedInput" type="number" value="42" class="w-20 bg-transparent text-white focus:outline-none" />
+              <button onclick="randomizeSeed()" class="text-white/45 hover:text-white" title="Random Seed">🎲</button>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="workspaceGenBtn" disabled onclick="submitRealMossGeneration()" title="Shortcut: Ctrl + Enter" class="disabled:opacity-40 disabled:cursor-not-allowed inline-flex h-9 items-center gap-2 rounded-2xl bg-white px-4 text-xs font-semibold text-black hover:bg-white/90 active:scale-95 transition-all shadow-lg">
+              <span>Generate</span>
+              <kbd class="rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-mono font-medium text-black/65">Ctrl+↵</kbd>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Lightbox Modal -->
+  <div id="lightboxModal" onclick="this.classList.add('hidden'); this.classList.remove('flex');" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 backdrop-blur-xl p-4 cursor-zoom-out">
+    <img id="lightboxImg" src="" alt="Full resolution preview" class="max-h-[90vh] max-w-[92vw] rounded-2xl border border-white/15 shadow-2xl object-contain" />
+  </div>
+
+  <!-- ======================= STANDALONE MOSS-5B API INTEGRATION ======================= -->
+  <script>
+    let sidebarCollapsed = false;
+    let inFlightJobs = [];
+    let pollTimer = null;
+    let submitting = false;
+    let queueCheckRunning = false;
+    let queueState = { online: false, available: false, running: 0, pending: 0 };
+
+    async function initRealWorkspace() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('prompt')) {
+        document.getElementById('workspacePromptInput').value = params.get('prompt');
+      }
+      randomizeSeed();
+      await cloudInit();
+      await loadComfySettings();
+      await refreshWorkspaceImages();
+      setInterval(pollActiveJobs, 2000);
+      setInterval(loadComfySettings, 4000);
+    }
+
+    function randomizeSeed() {
+      document.getElementById('seedInput').value = Math.floor(10000000 + Math.random() * 90000000);
+    }
+
+    function updateQueueView() {
+      const zh = !window.VioraI18n || window.VioraI18n.language !== 'en';
+      const busy = queueState.running > 0 || queueState.pending > 0;
+      let label;
+      if (!queueState.available) {
+        label = zh ? '无法获取队列状态，暂时不能提交。' : 'Queue unavailable. Submissions are temporarily disabled.';
+      } else if (busy) {
+        label = zh
+          ? `系统繁忙：正在生成 ${queueState.running} 个，等待 ${queueState.pending} 个任务；空闲后可提交。`
+          : `Busy: ${queueState.running} running, ${queueState.pending} waiting. Submit when available.`;
+      } else {
+        label = zh ? '系统空闲：正在生成 0 个，等待 0 个任务。' : 'Available: 0 running, 0 waiting.';
+      }
+      document.getElementById('queueNotice').textContent = label;
+      document.getElementById('queueStatusLabel').textContent = label;
+      const btn = document.getElementById('workspaceGenBtn');
+      btn.disabled = submitting || !cloudUser || !queueState.available || busy || inFlightJobs.some(job => job.status !== 'SAVING');
+    }
+    document.addEventListener('viora-language-change', updateQueueView);
+
+    async function loadComfySettings() {
+      if (queueCheckRunning) return;
+      queueCheckRunning = true;
+      try {
+        const res = await fetch('/api/moss?action=ping', { cache: 'no-store', signal: AbortSignal.timeout(12000) });
+        if (!res.ok) throw new Error('Queue unavailable');
+        const status = await res.json();
+        const valid = status.queue_available === true && Number.isInteger(status.running) && status.running >= 0 && Number.isInteger(status.pending) && status.pending >= 0;
+        queueState = { online: !!status.online, available: valid, running: valid ? status.running : 0, pending: valid ? status.pending : 0 };
+      } catch (_) { queueState = { online: false, available: false, running: 0, pending: 0 }; }
+      finally { queueCheckRunning = false; }
+      document.getElementById('topComfyDot').className = queueState.online ? 'size-2 rounded-full bg-emerald-400' : 'size-2 rounded-full bg-amber-400';
+      document.getElementById('topComfyLabel').textContent = queueState.online ? 'Server online' : 'Server offline';
+      updateQueueView();
+    }
+
+    let cachedImages = [];
+    let isFirstLoad = true;
+    const freshlyCompletedIds = new Set();
+
+    function scrollToBottom(smooth = true) {
+      const container = document.getElementById('feedScrollContainer');
+      if (!container) return;
+      requestAnimationFrame(() => {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: smooth ? 'smooth' : 'auto'
+        });
+      });
+    }
+
+    async function refreshWorkspaceImages(shouldScroll = false) {
+      try {
+        cachedImages = await cloudList();
+        renderRealFeed(cachedImages);
+      } catch (error) {
+        console.error('Unable to load cloud history:', error);
+        document.getElementById('queueStatusLabel').textContent = 'Cloud history unavailable. Please try again.';
+      }
+      if (isFirstLoad || shouldScroll) {
+        isFirstLoad = false;
+        scrollToBottom(shouldScroll);
+      }
+    }
+
+    function aspectBoxClasses(ratio) {
+      if (ratio === '9:16') return 'aspect-[9/16] w-[190px]';
+      if (ratio === '1:1') return 'aspect-square w-[230px]';
+      return 'aspect-[16/9] w-[320px]';
+    }
+
+    function renderChatGptPendingCard(job, idx) {
+      const pct = Math.min(99, Math.max(4, Math.round(job.progress || 6)));
+      const unblurredPct = pct;
+      const elapsedSec = ((Date.now() - (job.startedAt || Date.now())) / 1000).toFixed(1);
+      const isQueued = job.status === 'QUEUED';
+      const statusHeadline = isQueued
+        ? `Ahead: ${job.queue_ahead ?? '?'} task(s)`
+        : (job.node || 'Creating image...');
+
+      return `
+        <li id="pending-${job.prompt_id}" class="space-y-2">
+          <p data-i18n-skip class="max-w-xl whitespace-pre-wrap break-words text-xs text-white/65 select-text">${escapeHtml(job.prompt || '')}</p>
+          <!-- Compact Prompt Bubble + Shimmer Status (ChatGPT Style) -->
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 min-w-0">
+              <svg class="size-3.5 shrink-0 text-white animate-spin" style="animation-duration: 3.2s;" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
+              </svg>
+              <span data-role="headline" class="text-xs font-medium chatgpt-shimmer-text truncate">${escapeHtml(statusHeadline)}</span>
+              <span data-role="elapsed" class="text-[11px] font-mono text-white/35">${elapsedSec}s</span>
+              <span data-role="pct-pill" class="rounded-full bg-white/[0.08] px-2 py-0.5 text-[10px] font-mono text-white/85">${pct}%</span>
+            </div>
+          </div>
+
+          <!-- Compact ChatGPT-sized Progressive Reveal Image Tile -->
+          <div class="relative overflow-hidden rounded-2xl border border-white/15 shadow-xl ${aspectBoxClasses(job.aspect_ratio)} chatgpt-aurora-canvas">
+            <div class="pointer-events-none absolute inset-0 chatgpt-sweep-bar"></div>
+            <div class="pointer-events-none absolute inset-0 opacity-20" style="background-image: radial-gradient(rgba(255,255,255,0.22) 1px, transparent 1px); background-size: 16px 16px;"></div>
+
+            <!-- Top-to-Bottom Progressive Unblur Curtain -->
+            <div data-role="curtain" class="pointer-events-none absolute inset-x-0 bottom-0 transition-all duration-500 ease-out bg-black/55 backdrop-blur-2xl border-t border-white/25"
+                 style="height: ${Math.max(0, 100 - unblurredPct)}%;">
+            </div>
+
+            <!-- Compact Center Pill -->
+            <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center p-3 text-center">
+              <div class="rounded-xl border border-white/15 bg-black/55 px-3 py-1.5 backdrop-blur-xl shadow-lg">
+                <span data-role="center-meta" class="text-[11px] font-mono text-white/85">${pct}%</span>
+              </div>
+            </div>
+
+            <!-- Bottom Thin Progress Line -->
+            <div class="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-white/10">
+              <div data-role="bottom-bar" class="h-full bg-gradient-to-r from-indigo-400 via-emerald-400 to-sky-400 transition-all duration-500" style="width: ${pct}%;"></div>
+            </div>
+          </div>
+        </li>
+      `;
+    }
+
+    function updatePendingCardsInPlace() {
+      let allFound = true;
+      inFlightJobs.forEach((job, idx) => {
+        const card = document.getElementById(`pending-${job.prompt_id}`);
+        if (!card) {
+          allFound = false;
+          return;
+        }
+        const pct = Math.min(99, Math.max(4, Math.round(job.progress || 6)));
+        const elapsedSec = ((Date.now() - (job.startedAt || Date.now())) / 1000).toFixed(1);
+        const isQueued = job.status === 'QUEUED';
+        const statusHeadline = isQueued
+          ? `Ahead: ${job.queue_ahead ?? '?'} task(s)`
+          : (job.node || 'Creating image...');
+
+        const hl = card.querySelector('[data-role="headline"]');
+        if (hl) hl.textContent = statusHeadline;
+        const el = card.querySelector('[data-role="elapsed"]');
+        if (el) el.textContent = `${elapsedSec}s`;
+        const pill = card.querySelector('[data-role="pct-pill"]');
+        if (pill) pill.textContent = `${pct}%`;
+        const curtain = card.querySelector('[data-role="curtain"]');
+        if (curtain) curtain.style.height = `${Math.max(0, 100 - pct)}%`;
+        const cm = card.querySelector('[data-role="center-meta"]');
+        if (cm) cm.textContent = `${pct}%`;
+        const bb = card.querySelector('[data-role="bottom-bar"]');
+        if (bb) bb.style.width = `${pct}%`;
+      });
+      if (!allFound) {
+        renderRealFeed(cachedImages);
+      }
+    }
+
+    function renderRealFeed(images) {
+      const emptyEl = document.getElementById('emptyCanvasState');
+      const listEl = document.getElementById('generationFeedList');
+      const bannerEl = document.getElementById('activeJobBanner');
+      if (bannerEl) bannerEl.classList.add('hidden');
+
+      const hasPending = inFlightJobs.length > 0;
+      const hasImages = images && images.length > 0;
+
+      if (!hasPending && !hasImages) {
+        emptyEl.classList.remove('hidden');
+        listEl.innerHTML = '';
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+
+      const chronologicalImages = [...(images || [])].reverse();
+
+      const completedHtml = chronologicalImages.map(img => {
+        const key = img.prompt_id || img.id;
+        const shouldUnblur = freshlyCompletedIds.has(key);
+        if (shouldUnblur) {
+          setTimeout(() => freshlyCompletedIds.delete(key), 1000);
+        }
+        return `
+        <li class="space-y-2">
+          <!-- Compact Metadata + Prompt Line -->
+          <div class="flex items-center gap-2 text-[11px] font-mono text-white/40 select-text">
+            <span class="text-emerald-400/90">Image created</span>
+            <span>·</span>
+            <span>${img.width || 1344}×${img.height || 768}</span>
+            <span>·</span>
+            <span>Seed ${img.seed || 42}</span>
+            ${img.elapsed ? `<span>· ${img.elapsed}s</span>` : ''}
+          </div>
+          <p data-i18n-skip class="text-xs text-white/65 line-clamp-1 max-w-xl select-text">${escapeHtml(img.prompt || '')}</p>
+
+          <!-- Compact ChatGPT-sized Image Tile (Hover for Remix / Download / Delete, Click to Zoom) -->
+          <div class="group relative inline-block overflow-hidden rounded-2xl border border-white/10 bg-[#101014] shadow-xl">
+            <img src="${escapeHtml(img.media_url)}" alt="Generated Output" onclick="openLightbox(this.src)"
+              class="${shouldUnblur ? 'chatgpt-unblur-img ' : ''}max-h-[260px] max-w-[320px] w-auto h-auto rounded-2xl object-contain cursor-zoom-in transition-transform duration-300 group-hover:scale-[1.01]" />
+
+            <!-- Floating Hover Action Bar on Top-Right of the Image -->
+            <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute top-2 right-2 flex items-center gap-1 rounded-xl bg-black/75 backdrop-blur-md border border-white/15 p-1 shadow-lg">
+              <button data-prompt="${escapeHtml(img.prompt || '')}" data-ratio="${escapeHtml(img.aspect_ratio || '16:9')}" onclick="fillStarterPrompt(this.dataset.prompt, this.dataset.ratio)" class="rounded-lg px-2 py-1 text-[11px] text-white/85 hover:bg-white/15 hover:text-white" title="Reuse Prompt">
+                Remix
+              </button>
+              <a href="${escapeHtml(img.media_url)}" download="viora_${img.id || 'output'}.png" class="rounded-lg px-2 py-1 text-[11px] text-white/85 hover:bg-white/15 hover:text-white" title="Download PNG">
+                ↓
+              </a>
+              <button onclick="deleteWorkspaceImage('${img.id}')" class="rounded-lg px-2 py-1 text-[11px] text-red-400 hover:bg-red-500/20" title="Delete">
+                ✕
+              </button>
+            </div>
+          </div>
+        </li>
+      `;
+      }).join('');
+
+      const pendingHtml = inFlightJobs.map((job, idx) => renderChatGptPendingCard(job, idx)).join('');
+
+      listEl.innerHTML = completedHtml + pendingHtml;
+    }
+
+    // Submit Real MOSS-Image 5B Job to Standalone FIFO Queue (/api/moss?action=prompt)
+    async function submitRealMossGeneration() {
+      if (!cloudUser) { showCloudAuth(); return; }
+      if (submitting || !queueState.available || queueState.running || queueState.pending || inFlightJobs.some(job => job.status !== 'SAVING')) return;
+      const promptInput = document.getElementById('workspacePromptInput');
+      const submittedInput = promptInput.value;
+      const prompt = submittedInput.trim();
+      if (!prompt) {
+        promptInput.focus();
+        return;
+      }
+
+      const aspect_ratio = document.getElementById('aspectRatioSelect').value;
+      const steps = parseInt(document.getElementById('stepsInput').value, 10) || 35;
+      const cfg = parseFloat(document.getElementById('cfgInput').value) || 2.8;
+      const seed = parseInt(document.getElementById('seedInput').value, 10) || 42;
+
+      const btn = document.getElementById('workspaceGenBtn');
+      submitting = true;
+      updateQueueView();
+      btn.innerHTML = `<span class="size-3.5 rounded-full border-2 border-black/30 border-t-black animate-spin"></span><span>Creating...</span>`;
+
+      try {
+        const sessionResult = await cloudClient.auth.getSession();
+        const token = sessionResult.data.session?.access_token;
+        if (!token) throw new Error('Please sign in again.');
+        const res = await fetch('/api/moss?action=prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ prompt, aspect_ratio, steps, cfg, seed })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.prompt_id) {
+          if (res.status === 409) {
+            alert(window.VioraI18n.text('The server is busy. Please wait until it is available.'));
+            await loadComfySettings();
+            return;
+          }
+          if (res.status === 401) throw new Error('Please sign in again.');
+          throw new Error('Failed to submit generation');
+        }
+
+        if (promptInput.value === submittedInput) promptInput.value = '';
+
+        inFlightJobs.push({
+          prompt_id: data.prompt_id,
+          prompt,
+          aspect_ratio,
+          width: data.width || 1344,
+          height: data.height || 768,
+          steps,
+          cfg,
+          seed,
+          startedAt: Date.now(),
+          status: 'RUNNING',
+          progress: 6,
+          node: 'Creating image...'
+        });
+
+        renderRealFeed(cachedImages);
+        scrollToBottom(true);
+        randomizeSeed();
+        await pollActiveJobs();
+      } catch (err) {
+        console.error('Generation error:', err);
+        alert(window.VioraI18n.text('Generation could not be started. Please try again.'));
+      } finally {
+        submitting = false;
+        updateQueueView();
+        loadComfySettings();
+        btn.innerHTML = `<span>Generate</span><kbd class="rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-mono font-medium text-black/65">Ctrl+↵</kbd>`;
+      }
+    }
+
+    function isCtrlEnterEvent(event) {
+      if (!event) return false;
+      const hasCtrlOrCmd = Boolean(event.ctrlKey || event.metaKey);
+      const isEnterKey = (
+        event.key === 'Enter' ||
+        event.key === '\n' ||
+        event.code === 'Enter' ||
+        event.code === 'NumpadEnter' ||
+        event.keyCode === 13 ||
+        event.keyCode === 10
+      );
+      return hasCtrlOrCmd && isEnterKey;
+    }
+
+    function handlePromptKeydown(event) {
+      if (isCtrlEnterEvent(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        submitRealMossGeneration();
+      }
+    }
+
+    window.addEventListener('keydown', (event) => {
+      if (isCtrlEnterEvent(event)) {
+        event.preventDefault();
+        submitRealMossGeneration();
+      }
+    });
+
+    async function deleteWorkspaceImage(imageId) {
+      try {
+        await cloudDelete(imageId);
+        await refreshWorkspaceImages(false);
+      } catch (error) { console.error(error); alert(window.VioraI18n.text('Unable to delete image. Please try again.')); }
+
+    }
+
+    async function pollActiveJobs() {
+      if (pollTimer || inFlightJobs.length === 0) return;
+
+      pollTimer = true;
+      try {
+      const remaining = [];
+      let completedAny = false;
+
+      for (const job of inFlightJobs) {
+        try {
+          const res = await fetch(`/api/moss?action=status&prompt_id=${encodeURIComponent(job.prompt_id)}`);
+          if (!res.ok) {
+            remaining.push(job);
+            continue;
+          }
+          const st = await res.json();
+          if (st.status === 'DONE' && st.item) {
+            job.status = 'SAVING';
+            job.node = 'Saving image...';
+            updateQueueView();
+            await cloudSave(job, st.item);
+            completedAny = true;
+            freshlyCompletedIds.add(job.prompt_id);
+          } else if (st.status === 'FAILED') {
+            alert(window.VioraI18n.text('Generation failed. Please try again.'));
+          } else {
+            job.status = st.status || 'RUNNING';
+            job.queue_ahead = Number.isInteger(st.queue_ahead) ? st.queue_ahead : null;
+            job.progress = st.progress || job.progress || 10;
+            job.node = job.status === 'QUEUED' ? 'Waiting in queue...' : 'Creating image...';
+            remaining.push(job);
+          }
+        } catch (error) {
+          job.node = 'Saving or connection failed. Retrying...';
+          remaining.push(job);
+        }
+      }
+
+      inFlightJobs = remaining;
+      if (completedAny) {
+        await refreshWorkspaceImages(true);
+      } else {
+        updatePendingCardsInPlace();
+      }
+
+      updateQueueView();
+      if (completedAny) loadComfySettings();
+      } finally { pollTimer = null; }
+    }
+
+    function fillStarterPrompt(prompt, ratio) {
+      document.getElementById('workspacePromptInput').value = prompt;
+      if (ratio) document.getElementById('aspectRatioSelect').value = ratio;
+      document.getElementById('workspacePromptInput').focus();
+    }
+
+    function appendPromptFormula(text) {
+      const input = document.getElementById('workspacePromptInput');
+      input.value = input.value.trim() ? `${input.value.trim()}, ${text}` : text;
+      input.focus();
+    }
+
+    function openLightbox(src) {
+      document.getElementById('lightboxImg').src = src;
+      const m = document.getElementById('lightboxModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function toggleLeftSidebar() {
+      const sb = document.getElementById('leftSidebar');
+      const labels = document.querySelectorAll('.sidebar-label');
+      sidebarCollapsed = !sidebarCollapsed;
+      if (sidebarCollapsed) {
+        sb.style.width = '60px';
+        labels.forEach(el => el.classList.add('hidden'));
+      } else {
+        sb.style.width = '224px';
+        labels.forEach(el => el.classList.remove('hidden'));
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    window.addEventListener('DOMContentLoaded', initRealWorkspace);
+  </script>
+</body>
+</html>
