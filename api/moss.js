@@ -4,7 +4,7 @@
 const supabaseConfig = require("../config/supabase.json");
 const DEFAULT_GATEWAY_URL = process.env.MOSS_GATEWAY_URL || "";
 const DEFAULT_NEGATIVE_PROMPT =
-  "worst quality, bad anatomy, extra limbs, fused body, folded body, duplicate person, multiple people, disembodied legs, mutated hands, extra fingers, airbrushed plastic skin, beauty filter, over-smoothed skin, blurry background bokeh, watermark, text, logo, signature";
+  "plastic skin, waxy skin, smooth porcelain skin, airbrushed, beauty filter, over-smoothed skin, CGI, 3D render, doll, overly symmetrical face, studio glamour retouching, artificial bokeh, blurry background bokeh, worst quality, bad anatomy, extra limbs, fused body, folded body, duplicate person, multiple people, disembodied legs, mutated hands, extra fingers, watermark, text, logo, signature, jpeg artifact";
 
 const ASPECT_DIMS = {
   "16:9": [1344, 768],
@@ -165,26 +165,30 @@ module.exports = async function handler(req, res) {
       let running = 0;
       let pending = 0;
       let queueAvailable = false;
-      try {
-        const sRes = await fetchWithTimeout(`${baseUrl}/system_stats`, { method: "GET" }, 10000);
-        if (sRes.ok) {
-          online = true;
-          const sData = await sRes.json();
+      const [statsSettled, queueSettled] = await Promise.allSettled([
+        fetchWithTimeout(`${baseUrl}/system_stats`, { method: "GET" }, 8000),
+        fetchWithTimeout(`${baseUrl}/queue`, { method: "GET" }, 8000),
+      ]);
+      if (statsSettled.status === "fulfilled" && statsSettled.value.ok) {
+        online = true;
+        try {
+          const sData = await statsSettled.value.json();
           if (Array.isArray(sData.devices) && sData.devices[0]) {
             gpu = sData.devices[0].name || "";
           }
-        }
-        const qRes = await fetchWithTimeout(`${baseUrl}/queue`, { method: "GET" }, 8000);
-        if (qRes.ok) {
-          online = true;
-          const qData = await qRes.json();
+        } catch (_) {}
+      }
+      if (queueSettled.status === "fulfilled" && queueSettled.value.ok) {
+        online = true;
+        try {
+          const qData = await queueSettled.value.json();
           if (Array.isArray(qData.queue_running) && Array.isArray(qData.queue_pending)) {
             running = qData.queue_running.length;
             pending = qData.queue_pending.length;
             queueAvailable = true;
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
       return res.status(200).json({ online, queue_available: queueAvailable, running, pending });
     }
 
@@ -241,9 +245,13 @@ module.exports = async function handler(req, res) {
       const promptId = String(sp.get("prompt_id") || "").trim();
       if (!/^[A-Za-z0-9_-]{1,128}$/.test(promptId)) return res.status(400).json({ error: "Invalid prompt_id" });
 
-      const histRes = await fetchWithTimeout(`${baseUrl}/history/${encodeURIComponent(promptId)}`, { method: "GET" }, 12000);
-      if (histRes.ok) {
-        const histData = await histRes.json();
+      const [histSettled, queueSettled] = await Promise.allSettled([
+        fetchWithTimeout(`${baseUrl}/history/${encodeURIComponent(promptId)}`, { method: "GET" }, 10000),
+        fetchWithTimeout(`${baseUrl}/queue`, { method: "GET" }, 8000),
+      ]);
+
+      if (histSettled.status === "fulfilled" && histSettled.value.ok) {
+        const histData = await histSettled.value.json();
         const entry = histData && histData[promptId];
         if (entry) {
           if (entry.status && entry.status.status_str === "error") {
@@ -268,9 +276,8 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      const qRes = await fetchWithTimeout(`${baseUrl}/queue`, { method: "GET" }, 8000);
-      if (qRes.ok) {
-        const qData = await qRes.json();
+      if (queueSettled.status === "fulfilled" && queueSettled.value.ok) {
+        const qData = await queueSettled.value.json();
         const running = Array.isArray(qData.queue_running) ? qData.queue_running : [];
         const pending = Array.isArray(qData.queue_pending) ? [...qData.queue_pending].sort((a, b) => (a?.[0] ?? Infinity) - (b?.[0] ?? Infinity)) : [];
         const isRunning = running.some((x) => Array.isArray(x) && x[1] === promptId);

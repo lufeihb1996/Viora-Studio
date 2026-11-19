@@ -12,7 +12,7 @@ async function setup(fetchImpl) {
   w.setInterval=()=>0; w.requestAnimationFrame=()=>0;
   w.HTMLElement.prototype.scrollTo=function(){};
   const scripts=[...w.document.querySelectorAll('script:not([src])')];
-  w.eval(cloud+'\n'+scripts.at(-1).textContent+`\ncloudUser={id:'user'}; queueState={online:true,available:true,running:0,pending:0}; cloudInit=async()=>true; loadComfySettings=async()=>{}; refreshWorkspaceImages=async()=>{}; pollActiveJobs=async()=>{}; window.testSubmit=submitRealMossGeneration; window.testJobs=()=>inFlightJobs; window.setQueue=(state)=>{queueState=state; updateQueueView();}; window.testQueueView=updateQueueView;`);
+  w.eval(cloud+'\n'+scripts.at(-1).textContent+`\ncloudUser={id:'user'}; queueState={online:true,available:true,running:0,pending:0}; cloudInit=async()=>true; loadComfySettings=async()=>{}; refreshWorkspaceImages=async()=>{}; pollActiveJobs=async()=>{}; window.testSubmit=submitRealMossGeneration; window.testJobs=()=>inFlightJobs; window.setQueue=(state)=>{queueState=state; updateQueueView();}; window.testQueueView=updateQueueView; window.testReload=()=>{inFlightJobs=[]; renderRealFeed([]); restoreInFlightJobs(); renderRealFeed([]);};`);
   await new Promise(r=>setTimeout(r,0));
   return dom;
 }
@@ -63,4 +63,18 @@ test('a race rejected by the server retains the prompt and creates no job',async
   const dom=await setup(async()=>({ok:false,status:409,json:async()=>({error:'busy'})}));
   const input=dom.window.document.getElementById('workspacePromptInput');input.value='Keep prompt';
   await dom.window.testSubmit();assert.equal(input.value,'Keep prompt');assert.equal(dom.window.testJobs().length,0);dom.window.close();
+});
+test('in-flight job persists in localStorage and restores its progress card after reload',async()=>{
+  const dom=await setup(async()=>({ok:true,json:async()=>({prompt_id:'job-persist'})}));
+  const d=dom.window.document;
+  d.getElementById('workspacePromptInput').value='Persist across refresh';
+  await dom.window.testSubmit();
+  const saved=dom.window.localStorage.getItem('viora_inflight_user');
+  assert.ok(saved && saved.includes('job-persist'));
+  // Simulate clearing memory on reload and restoring from localStorage
+  dom.window.testReload();
+  assert.equal(dom.window.testJobs().length,1);
+  assert.equal(dom.window.testJobs()[0].prompt_id,'job-persist');
+  assert.ok(d.getElementById('pending-job-persist'));
+  dom.window.close();
 });

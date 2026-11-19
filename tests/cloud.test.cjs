@@ -41,3 +41,61 @@ test('does not write history when storage upload fails', async () => {
   await assert.rejects(context.cloudSave(job, { media_url: '/image.png' }), /storage unavailable/);
   assert.equal(state.rows.length, 0);
 });
+test('uses batch createSignedUrls, caches signed URLs, and supports batch deletion', async () => {
+  const state = {
+    rows: [
+      { id: 'id-1', storage_path: 'test-user/a.png' },
+      { id: 'id-2', storage_path: 'test-user/b.png' },
+    ],
+    objects: new Map([['test-user/a.png', 'a'], ['test-user/b.png', 'b']]),
+    batchSignCalls: 0,
+  };
+  const storage = {
+    async createSignedUrls(paths) {
+      state.batchSignCalls++;
+      return { data: paths.map(p => ({ path: p, signedUrl: 'https://example.test/batch/' + p })), error: null };
+    },
+    async remove(paths) { for (const p of paths) state.objects.delete(p); return { error: null }; }
+  };
+  const db = {
+    select() {
+      return {
+        order() { return { async limit() { return { data: state.rows, error: null }; } }; },
+        async in(field, values) { return { data: state.rows.filter(r => values.includes(r[field])), error: null }; },
+      };
+    },
+    delete() {
+      return {
+        async in(field, values) { state.rows = state.rows.filter(r => !values.includes(r[field])); return { error: null }; }
+      };
+    }
+  };
+  const client = { auth: {}, from: () => db, storage: { from: () => storage } };
+  const context = vm.createContext({ window: { supabase: { createClient: () => client }, MOSS_SUPABASE: { url: 'https://example.test', key: 'test' } }, crypto: webcrypto, TextEncoder, console });
+  vm.runInContext(fs.readFileSync('public/assets/cloud.js', 'utf8'), context);
+  vm.runInContext("cloudUser = { id: 'test-user' }", context);
+
+  const first = await context.cloudList();
+  assert.equal(first.length, 2);
+  assert.equal(state.batchSignCalls, 1);
+  // Second list should hit the in-memory signed URL cache (0 extra signing calls)
+  const second = await context.cloudList();
+  assert.equal(second.length, 2);
+  assert.equal(state.batchSignCalls, 1);
+
+  const deleted = await context.cloudBatchDelete(['id-1', 'id-2']);
+  assert.equal(deleted, 2);
+  assert.equal(state.rows.length, 0);
+  assert.equal(state.objects.size, 0);
+
+  state.rows.push(
+    { id: 'id-3', storage_path: 'test-user/c.png' },
+    { id: 'id-4', storage_path: 'test-user/d.png' },
+  );
+  state.objects.set('test-user/c.png', 'c');
+  state.objects.set('test-user/d.png', 'd');
+  const cleared = await context.cloudClearAll();
+  assert.equal(cleared, 2);
+  assert.equal(state.rows.length, 0);
+  assert.equal(state.objects.size, 0);
+});

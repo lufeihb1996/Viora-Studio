@@ -1,18 +1,45 @@
 'use strict';
 const cloudClient = window.supabase.createClient(window.MOSS_SUPABASE.url, window.MOSS_SUPABASE.key);
 let cloudUser = null;
+const signedUrlCache = new Map();
+const SIGNED_URL_TTL_SEC = 3600;
+const SIGNED_URL_REUSE_MS = 45 * 60 * 1000;
 
 async function cloudInit() {
   const { data, error } = await cloudClient.auth.getUser();
   cloudUser = error ? null : data.user;
-  showCloudAuth();
+  showCloudAuth(false);
   return !!cloudUser;
 }
-function showCloudAuth() {
-  document.getElementById('cloudAuth').classList.toggle('hidden', !!cloudUser);
+
+function showCloudAuth(forceOpen = false) {
+  const modal = document.getElementById('cloudAuth');
+  if (modal) {
+    const shouldShow = Boolean(forceOpen && !cloudUser);
+    modal.classList.toggle('hidden', !shouldShow);
+  }
   const email = cloudUser?.email || '';
-  document.getElementById('cloudAccount').textContent = email.endsWith('@viora.local.invalid') ? email.split('@')[0] : email;
+  const accountEl = document.getElementById('cloudAccount');
+  if (accountEl) {
+    accountEl.textContent = cloudUser
+      ? (email.endsWith('@viora.local.invalid') ? email.split('@')[0] : email)
+      : '';
+  }
+  const signOutBtn = document.getElementById('cloudSignOutBtn');
+  if (signOutBtn) signOutBtn.classList.toggle('hidden', !cloudUser);
+  const guestBtn = document.getElementById('cloudGuestSignInBtn');
+  if (guestBtn) guestBtn.classList.toggle('hidden', !!cloudUser);
+  const topGuestBtn = document.getElementById('topGuestSignInBtn');
+  if (topGuestBtn) topGuestBtn.classList.toggle('hidden', !!cloudUser);
+  const guestBanner = document.getElementById('guestBanner');
+  if (guestBanner) guestBanner.classList.toggle('hidden', !!cloudUser);
 }
+
+function closeCloudAuth() {
+  const modal = document.getElementById('cloudAuth');
+  if (modal) modal.classList.add('hidden');
+}
+
 let authBusy = false;
 async function cloudSignIn(signUp) {
   if (authBusy) return;
@@ -50,34 +77,82 @@ async function cloudSignIn(signUp) {
       return;
     }
     cloudUser = data.user;
+    signedUrlCache.clear();
     document.getElementById('cloudPassword').value = '';
     message.textContent = '';
-    showCloudAuth();
-    if (typeof updateQueueView === "function") updateQueueView();
+    showCloudAuth(false);
+    if (typeof updateQueueView === 'function') updateQueueView();
     await refreshWorkspaceImages();
   } catch (_) { message.textContent = created ? 'Account created. Please sign in.' : 'Could not connect. Please try again.'; }
   finally { authBusy = false; signInButton.disabled = signUpButton.disabled = false; }
 }
+
 async function cloudSignOut() {
-  if (inFlightJobs.length) { alert(window.VioraI18n ? window.VioraI18n.text('Wait for active images to finish saving before signing out.') : 'Wait for active images to finish saving before signing out.'); return; }
+  if (typeof inFlightJobs !== 'undefined' && inFlightJobs.length) {
+    alert(window.VioraI18n ? window.VioraI18n.text('Wait for active images to finish saving before signing out.') : 'Wait for active images to finish saving before signing out.');
+    return;
+  }
   const { error } = await cloudClient.auth.signOut();
-  if (error) { console.error(error); alert(window.VioraI18n ? window.VioraI18n.text('Unable to sign out. Please try again.') : 'Unable to sign out. Please try again.'); return; }
+  if (error) {
+    console.error(error);
+    alert(window.VioraI18n ? window.VioraI18n.text('Unable to sign out. Please try again.') : 'Unable to sign out. Please try again.');
+    return;
+  }
   cloudUser = null;
-  cachedImages = [];
-  renderRealFeed([]);
-  showCloudAuth();
-  if (typeof updateQueueView === "function") updateQueueView();
+  signedUrlCache.clear();
+  if (typeof cachedImages !== 'undefined') cachedImages = [];
+  if (typeof selectedImageIds !== 'undefined') selectedImageIds.clear();
+  if (typeof batchSelectMode !== 'undefined') batchSelectMode = false;
+  if (typeof renderRealFeed === 'function') renderRealFeed([]);
+  showCloudAuth(false);
+  if (typeof updateQueueView === 'function') updateQueueView();
 }
+
+async function resolveSignedUrls(paths) {
+  const now = Date.now();
+  const result = new Map();
+  const missing = [];
+  for (const path of paths) {
+    const cached = signedUrlCache.get(path);
+    if (cached && cached.expiresAt > now) {
+      result.set(path, cached.url);
+    } else if (!missing.includes(path)) {
+      missing.push(path);
+    }
+  }
+  if (!missing.length) return result;
+
+  const bucket = cloudClient.storage.from('moss-images');
+  if (typeof bucket.createSignedUrls === 'function') {
+    const { data, error } = await bucket.createSignedUrls(missing, SIGNED_URL_TTL_SEC);
+    if (error) throw error;
+    for (const entry of data || []) {
+      if (entry && entry.path && entry.signedUrl) {
+        signedUrlCache.set(entry.path, { url: entry.signedUrl, expiresAt: now + SIGNED_URL_REUSE_MS });
+        result.set(entry.path, entry.signedUrl);
+      }
+    }
+    return result;
+  }
+
+  await Promise.all(missing.map(async path => {
+    const { data: signed, error: signingError } = await bucket.createSignedUrl(path, SIGNED_URL_TTL_SEC);
+    if (signingError) throw signingError;
+    signedUrlCache.set(path, { url: signed.signedUrl, expiresAt: now + SIGNED_URL_REUSE_MS });
+    result.set(path, signed.signedUrl);
+  }));
+  return result;
+}
+
 async function cloudList() {
   if (!cloudUser) return [];
   const { data, error } = await cloudClient.from('moss_images').select('*').order('created_at', { ascending: false }).limit(100);
   if (error) throw error;
-  return await Promise.all(data.map(async row => {
-    const { data: signed, error: signingError } = await cloudClient.storage.from('moss-images').createSignedUrl(row.storage_path, 3600);
-    if (signingError) throw signingError;
-    return { ...row, media_url: signed.signedUrl };
-  }));
+  if (!data || !data.length) return [];
+  const urlMap = await resolveSignedUrls(data.map(row => row.storage_path));
+  return data.map(row => ({ ...row, media_url: urlMap.get(row.storage_path) || '' }));
 }
+
 async function cloudSave(job, item) {
   if (!cloudUser) throw new Error('Please sign in again to save your image.');
   const response = await fetch(item.media_url);
@@ -89,10 +164,12 @@ async function cloudSave(job, item) {
   const storagePath = `${cloudUser.id}/${hash}.png`;
   const { error: uploadError } = await cloudClient.storage.from('moss-images').upload(storagePath, blob, { contentType: 'image/png', upsert: true });
   if (uploadError) throw uploadError;
+  signedUrlCache.delete(storagePath);
   const row = { user_id: cloudUser.id, prompt_id: job.prompt_id, storage_path: storagePath, prompt: job.prompt, aspect_ratio: job.aspect_ratio, width: job.width, height: job.height, steps: job.steps, cfg: job.cfg, seed: job.seed, elapsed: item.elapsed || null };
   const { error } = await cloudClient.from('moss_images').upsert(row, { onConflict: 'user_id,prompt_id' });
   if (error) throw error;
 }
+
 async function cloudDelete(id) {
   const { data, error } = await cloudClient.from('moss_images').select('storage_path').eq('id', id).single();
   if (error) throw error;
@@ -100,4 +177,50 @@ async function cloudDelete(id) {
   if (deleteError) throw deleteError;
   const { error: storageError } = await cloudClient.storage.from('moss-images').remove([data.storage_path]);
   if (storageError) throw storageError;
+  signedUrlCache.delete(data.storage_path);
+}
+
+async function cloudBatchDelete(ids) {
+  const cleanIds = Array.from(new Set((ids || []).filter(Boolean)));
+  if (!cleanIds.length) return 0;
+  const { data, error } = await cloudClient.from('moss_images').select('id, storage_path').in('id', cleanIds);
+  if (error) throw error;
+  const rows = data || [];
+  if (!rows.length) return 0;
+  const { error: deleteError } = await cloudClient.from('moss_images').delete().in('id', rows.map(r => r.id));
+  if (deleteError) throw deleteError;
+  const paths = rows.map(r => r.storage_path).filter(Boolean);
+  if (paths.length) {
+    const { error: storageError } = await cloudClient.storage.from('moss-images').remove(paths);
+    if (storageError) throw storageError;
+    paths.forEach(p => signedUrlCache.delete(p));
+  }
+  return rows.length;
+}
+
+async function cloudClearAll() {
+  if (!cloudUser) return 0;
+  let totalDeleted = 0;
+  while (true) {
+    const { data, error } = await cloudClient
+      .from('moss_images')
+      .select('id, storage_path')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    const rows = data || [];
+    if (!rows.length) break;
+    const { error: deleteError } = await cloudClient.from('moss_images').delete().in('id', rows.map(r => r.id));
+    if (deleteError) throw deleteError;
+    const paths = rows.map(r => r.storage_path).filter(Boolean);
+    if (paths.length) {
+      const { error: storageError } = await cloudClient.storage.from('moss-images').remove(paths);
+      if (storageError) throw storageError;
+      paths.forEach(p => signedUrlCache.delete(p));
+    }
+    totalDeleted += rows.length;
+    if (rows.length < 100) break;
+  }
+  signedUrlCache.clear();
+  return totalDeleted;
 }

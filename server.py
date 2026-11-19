@@ -39,10 +39,12 @@ HISTORY_FILE = ROOT_DIR / "outputs" / "history.json"
 
 DEFAULT_GATEWAY_URL = os.environ.get("MOSS_GATEWAY_URL", "").strip().rstrip("/")
 DEFAULT_NEGATIVE_PROMPT = (
+    "plastic skin, waxy skin, smooth porcelain skin, airbrushed, beauty filter, "
+    "over-smoothed skin, CGI, 3D render, doll, overly symmetrical face, "
+    "studio glamour retouching, artificial bokeh, blurry background bokeh, "
     "worst quality, bad anatomy, extra limbs, fused body, folded body, "
     "duplicate person, multiple people, disembodied legs, mutated hands, "
-    "extra fingers, airbrushed plastic skin, beauty filter, over-smoothed skin, "
-    "blurry background bokeh, watermark, text, logo, signature"
+    "extra fingers, watermark, text, logo, signature, jpeg artifact"
 )
 
 ASPECT_DIMS = {
@@ -111,19 +113,30 @@ def _local_proxy_alive(proxy_url: str) -> bool:
         return False
 
 
+_proxy_cache: dict[str, tuple[float, str | None]] = {}
+_http_client_pool: dict[str, httpx.AsyncClient] = {}
+_supabase_config_cache: dict[str, str] | None = None
+
+
 def resolve_outbound_proxy(target_url: str) -> str | None:
     parsed = urlparse(str(target_url or "").strip())
     host = (parsed.hostname or "").strip().lower()
     if not host or host in {"127.0.0.1", "localhost", "::1"}:
         return None
+    now = time.monotonic()
+    cached = _proxy_cache.get(host)
+    if cached and (now - cached[0]) < 30.0:
+        return cached[1]
+    resolved: str | None = None
     for k in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"):
         val = (os.environ.get(k) or "").strip()
         if val:
             if "://" not in val:
                 val = f"http://{val}"
             if _local_proxy_alive(val):
-                return val
-    if sys.platform == "win32":
+                resolved = val
+                break
+    if resolved is None and sys.platform == "win32":
         with contextlib.suppress(Exception):
             import winreg
             with winreg.OpenKey(
@@ -138,19 +151,38 @@ def resolve_outbound_proxy(target_url: str) -> str | None:
                         if "://" not in cand:
                             cand = f"http://{cand}"
                         if _local_proxy_alive(cand):
-                            return cand
-    return None
+                            resolved = cand
+    _proxy_cache[host] = (now, resolved)
+    return resolved
 
 
-def make_http_client(base_url: str, timeout_sec: float = 20.0) -> httpx.AsyncClient:
+class _PooledClientContext:
+    """Reuses a warm Keep-Alive httpx.AsyncClient across requests to avoid repeated TLS handshakes."""
+    def __init__(self, client: httpx.AsyncClient):
+        self._client = client
+
+    async def __aenter__(self) -> httpx.AsyncClient:
+        return self._client
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        return None
+
+
+def make_http_client(base_url: str, timeout_sec: float = 20.0) -> _PooledClientContext:
     proxy_url = resolve_outbound_proxy(base_url)
-    return httpx.AsyncClient(
-        proxy=proxy_url,
-        trust_env=False,
-        http2=False,
-        follow_redirects=True,
-        timeout=httpx.Timeout(timeout_sec, connect=10.0),
-    )
+    key = proxy_url or "__direct__"
+    client = _http_client_pool.get(key)
+    if client is None or client.is_closed:
+        client = httpx.AsyncClient(
+            proxy=proxy_url,
+            trust_env=False,
+            http2=False,
+            follow_redirects=True,
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10, keepalive_expiry=60.0),
+            timeout=httpx.Timeout(max(timeout_sec, 25.0), connect=10.0),
+        )
+        _http_client_pool[key] = client
+    return _PooledClientContext(client)
 
 
 def build_moss_workflow(
@@ -336,12 +368,19 @@ async def favicon_ico():
     return FileResponse(path, media_type="image/x-icon")
 
 
+def _load_supabase_config() -> dict[str, str]:
+    global _supabase_config_cache
+    if _supabase_config_cache is None:
+        _supabase_config_cache = json.loads((ROOT_DIR / "config" / "supabase.json").read_text(encoding="utf-8"))
+    return _supabase_config_cache
+
+
 async def _generation_lease(request: Request, action: str, lease: str | None = None) -> str | None:
     authorization = request.headers.get("authorization", "")
     if not re.fullmatch(r"Bearer [A-Za-z0-9._-]+", authorization):
         raise HTTPException(401, "Please sign in")
     try:
-        config = json.loads((ROOT_DIR / "config" / "supabase.json").read_text(encoding="utf-8"))
+        config = _load_supabase_config()
         url = config["url"].rstrip("/")
         headers = {"apikey": config["publishableKey"], "Authorization": authorization}
         payload = {"claim": lease} if action == "release" else {}
@@ -384,18 +423,22 @@ async def moss_api(request: Request):
         running_count = 0
         pending_count = 0
         queue_available = False
-        async with make_http_client(base_url, timeout_sec=12.0) as client:
-            with contextlib.suppress(Exception):
-                r_stats = await client.get(f"{base_url}/system_stats")
-                if r_stats.is_success:
-                    online = True
+        async with make_http_client(base_url, timeout_sec=10.0) as client:
+            r_stats, r_q = await asyncio.gather(
+                client.get(f"{base_url}/system_stats"),
+                client.get(f"{base_url}/queue"),
+                return_exceptions=True,
+            )
+            if not isinstance(r_stats, Exception) and r_stats.is_success:
+                online = True
+                with contextlib.suppress(Exception):
                     payload = r_stats.json()
                     devices = payload.get("devices") or []
                     if devices:
                         gpu_name = str(devices[0].get("name", ""))
-                r_q = await client.get(f"{base_url}/queue")
-                if r_q.is_success:
-                    online = True
+            if not isinstance(r_q, Exception) and r_q.is_success:
+                online = True
+                with contextlib.suppress(Exception):
                     q_data = r_q.json()
                     if isinstance(q_data.get("queue_running"), list) and isinstance(q_data.get("queue_pending"), list):
                         running_count = len(q_data["queue_running"])
@@ -435,6 +478,7 @@ async def moss_api(request: Request):
         client_id = f"moss_krea_{uuid.uuid4().hex[:10]}"
         lease = await _generation_lease(request, "claim")
         release_lease = True
+        submitted_ok = False
         try:
             async with make_http_client(base_url, timeout_sec=25.0) as client:
                 try:
@@ -461,10 +505,17 @@ async def moss_api(request: Request):
                 if not isinstance(prompt_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", prompt_id):
                     raise HTTPException(502, "Generation server returned an invalid response")
                 release_lease = True
+                submitted_ok = True
         finally:
             if release_lease:
-                with contextlib.suppress(Exception):
-                    await _generation_lease(request, "release", lease)
+                if submitted_ok:
+                    async def _release_bg() -> None:
+                        with contextlib.suppress(Exception):
+                            await _generation_lease(request, "release", lease)
+                    asyncio.create_task(_release_bg())
+                else:
+                    with contextlib.suppress(Exception):
+                        await _generation_lease(request, "release", lease)
 
         _pending_meta[prompt_id] = {
             "prompt_id": prompt_id,
@@ -506,9 +557,13 @@ async def moss_api(request: Request):
                     }})
 
         async with make_http_client(base_url, timeout_sec=20.0) as client:
+            r_hist, r_q = await asyncio.gather(
+                client.get(f"{base_url}/history/{prompt_id}"),
+                client.get(f"{base_url}/queue"),
+                return_exceptions=True,
+            )
             with contextlib.suppress(Exception):
-                r_hist = await client.get(f"{base_url}/history/{prompt_id}")
-                if r_hist.is_success:
+                if not isinstance(r_hist, Exception) and r_hist.is_success:
                     hist_data = r_hist.json()
                     entry = hist_data.get(prompt_id) if isinstance(hist_data, dict) else None
                     if isinstance(entry, dict):
@@ -559,8 +614,7 @@ async def moss_api(request: Request):
                                     return JSONResponse({"status": "DONE", "progress": 100, "item": {"prompt_id": prompt_id, "media_url": new_item["media_url"], "elapsed": elapsed}})
 
             with contextlib.suppress(Exception):
-                r_q = await client.get(f"{base_url}/queue")
-                if r_q.is_success:
+                if not isinstance(r_q, Exception) and r_q.is_success:
                     q_data = r_q.json()
                     running = q_data.get("queue_running") or []
                     pending = q_data.get("queue_pending") or []

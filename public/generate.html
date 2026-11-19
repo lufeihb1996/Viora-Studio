@@ -10,10 +10,10 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
   <link rel="shortcut icon" href="/favicon.ico" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="/assets/i18n.js"></script>
+  <script src="/assets/i18n.js?v=4"></script>
   <script src="/assets/supabase.js"></script>
   <script src="/assets/supabase-config.js"></script>
-  <script src="/assets/cloud.js"></script>
+  <script src="/assets/cloud.js?v=3"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -120,15 +120,27 @@
 </head>
 <body class="flex h-svh w-screen overflow-hidden bg-primary-950 text-white select-none">
 
-  <div id="cloudAuth" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
-    <div class="w-full max-w-sm space-y-4 rounded-2xl border border-white/15 bg-[#161619] p-6 shadow-xl">
-      <div class="flex items-center justify-between gap-3"><h2 class="text-xl font-semibold">Sign in to Viora Studio</h2><button type="button" onclick="VioraI18n.toggle()" class="shrink-0 rounded-lg border border-white/20 px-2 py-1 text-xs text-white/75">中文 / EN</button></div>
-      <p class="text-sm text-white/60">Your images and history are saved privately to your account.</p>
-      <input id="cloudUsername" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Username" class="w-full rounded-lg border border-white/20 bg-black px-3 py-2 text-sm" />
-      <input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Password" class="w-full rounded-lg border border-white/20 bg-black px-3 py-2 text-sm" />
+  <div id="cloudAuth" onclick="if(event.target===this) closeCloudAuth()" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4 flex">
+    <div class="w-full max-w-sm space-y-4 rounded-2xl border border-white/15 bg-[#161619] p-6 shadow-2xl">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-xl font-semibold">Sign in to Viora Studio</h2>
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="VioraI18n.toggle()" class="shrink-0 rounded-lg border border-white/20 px-2 py-1 text-xs text-white/75 hover:bg-white/10">中文 / EN</button>
+          <button type="button" onclick="closeCloudAuth()" class="shrink-0 rounded-lg border border-white/15 px-2 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white" title="Close">✕</button>
+        </div>
+      </div>
+      <p id="cloudAuthSubtitle" class="text-sm text-white/60">Your images and history are saved privately to your account.</p>
+      <input id="cloudUsername" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Username" onkeydown="if(event.key==='Enter') document.getElementById('cloudPassword').focus()" class="w-full rounded-lg border border-white/20 bg-black px-3 py-2 text-sm text-white select-text" />
+      <input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Password" onkeydown="if(event.key==='Enter') cloudSignIn(false)" class="w-full rounded-lg border border-white/20 bg-black px-3 py-2 text-sm text-white select-text" />
       <p class="text-xs text-white/50">Username: 3–24 letters, numbers, or underscores. Password: at least 8 characters.</p>
       <p id="cloudAuthMessage" role="status" class="text-xs text-amber-300"></p>
-      <div class="flex gap-2"><button id="cloudSignInBtn" onclick="cloudSignIn(false)" class="rounded-lg bg-white px-4 py-2 text-sm text-black">Sign in</button><button id="cloudSignUpBtn" onclick="cloudSignIn(true)" class="rounded-lg border border-white/30 px-4 py-2 text-sm">Create account</button></div>
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex gap-2">
+          <button id="cloudSignInBtn" onclick="cloudSignIn(false)" class="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90">Sign in</button>
+          <button id="cloudSignUpBtn" onclick="cloudSignIn(true)" class="rounded-lg border border-white/30 px-4 py-2 text-sm hover:bg-white/10">Create account</button>
+        </div>
+        <button type="button" onclick="closeCloudAuth()" class="text-xs text-white/45 hover:text-white/80">Continue browsing as guest</button>
+      </div>
     </div>
   </div>
 
@@ -163,6 +175,16 @@
           <span class="sidebar-label rounded bg-emerald-400/20 px-1.5 py-0.5 text-[9px] font-mono text-emerald-300">AI</span>
         </button>
 
+        <!-- Clear All Action (Directly under Create images) -->
+        <div id="sidebarGalleryActions" class="hidden pt-2 mt-2 border-t border-white/[0.07]">
+          <button id="sidebarClearAllBtn" type="button" onclick="clearAllWorkspaceImages(this)" class="w-full flex h-9 items-center justify-between rounded-lg px-2.5 text-xs font-normal text-red-300/85 hover:bg-red-500/15 hover:text-red-200 transition-colors" title="Clear all">
+            <div class="flex items-center gap-3 truncate">
+              <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+              <span data-role="clear-label" class="sidebar-label truncate">Clear all</span>
+            </div>
+            <span id="sidebarImageCount" data-i18n-skip class="sidebar-label rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[10px] font-mono text-white/60">0</span>
+          </button>
+        </div>
 
       </nav>
     </div>
@@ -179,7 +201,8 @@
       </div>
 
       <div class="sidebar-label text-xs text-white/60 truncate" id="cloudAccount" data-i18n-skip></div>
-      <button onclick="cloudSignOut()" class="sidebar-label text-xs text-white/60 hover:text-white">Sign out</button>
+      <button id="cloudSignOutBtn" onclick="cloudSignOut()" class="sidebar-label hidden text-xs text-white/60 hover:text-white">Sign out</button>
+      <button id="cloudGuestSignInBtn" onclick="openAuthModal()" class="sidebar-label hidden w-full rounded-xl bg-white px-3 py-2 text-xs font-medium text-black hover:bg-white/90 transition-colors">Sign in / Register</button>
 
     </div>
   </aside>
@@ -188,19 +211,20 @@
   <main class="relative flex min-w-0 flex-1 flex-col h-svh overflow-hidden bg-primary-950">
 
     <!-- Top Floating Bar: Model Selector (Left) + ComfyUI Server Status (Right) -->
-    <div class="z-30 flex shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#0b0b0d]/90 px-4 py-3 backdrop-blur-xl">
-      <div class="relative">
-        <div class="inline-flex h-9 items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-sm font-normal">
-          <span class="text-white/45 text-xs">Model</span>
+    <div class="z-30 flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] bg-[#0b0b0d]/90 px-4 py-3 backdrop-blur-xl">
+      <div class="relative shrink-0">
+        <div class="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm font-normal">
+          <span class="hidden sm:inline text-white/45 text-xs">Model</span>
           <span class="font-medium text-white">Viora Studio</span>
           <span class="rounded bg-emerald-400/15 px-1.5 py-0.5 text-[10px] font-mono text-emerald-300 border border-emerald-400/25">AI</span>
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <button type="button" onclick="VioraI18n.toggle()" class="inline-flex h-9 items-center rounded-xl border border-white/10 px-3 text-xs text-white/80 hover:bg-white/10">中文 / EN</button>
-        <div class="inline-flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-white/85">
-          <span id="topComfyDot" class="size-2 rounded-full bg-amber-400"></span>
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="topGuestSignInBtn" type="button" onclick="openAuthModal()" class="hidden whitespace-nowrap inline-flex h-9 items-center rounded-xl bg-white px-3 text-xs font-medium text-black hover:bg-white/90 transition-colors">Sign in / Register</button>
+        <button type="button" onclick="VioraI18n.toggle()" class="whitespace-nowrap inline-flex h-9 items-center rounded-xl border border-white/10 px-3 text-xs text-white/80 hover:bg-white/10">中文 / EN</button>
+        <div class="whitespace-nowrap inline-flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-white/85">
+          <span id="topComfyDot" class="size-2 shrink-0 rounded-full bg-amber-400"></span>
           <span id="topComfyLabel">Server status</span>
         </div>
         <button onclick="refreshWorkspaceImages()" class="inline-flex h-9 items-center rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-white/80 hover:bg-white/10 transition-colors" title="Refresh Feed">
@@ -210,11 +234,20 @@
     </div>
 
     <!-- Center Scrollable Generation Feed -->
-    <div id="feedScrollContainer" class="min-h-0 flex-1 overflow-y-auto px-4 pt-8 pb-52 md:px-8">
+    <div id="feedScrollContainer" class="min-h-0 flex-1 overflow-y-auto px-4 pt-6 pb-52 md:px-8">
       <h1 class="sr-only">Create images with Viora Studio</h1>
 
+      <!-- Non-Blocking Guest Mode Banner (Shown only after auth check confirms guest) -->
+      <div id="guestBanner" class="mx-auto mb-5 hidden max-w-2xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-3 text-xs flex">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span class="shrink-0 rounded-md bg-emerald-400/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300">Guest mode</span>
+          <span class="text-white/75 leading-relaxed">Sign in to generate and save your creations privately.</span>
+        </div>
+        <button type="button" onclick="openAuthModal()" class="shrink-0 rounded-xl bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-white/90 transition-colors">Sign in / Register</button>
+      </div>
+
       <!-- Empty State (Shown when no images generated yet in this clean workspace) -->
-      <div id="emptyCanvasState" class="mx-auto flex max-w-2xl flex-col items-center justify-center py-10 text-center space-y-5">
+      <div id="emptyCanvasState" class="mx-auto flex max-w-2xl flex-col items-center justify-center py-8 text-center space-y-5">
         <div class="flex size-14 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.04] text-xl font-bold text-white shadow-xl">
           V
         </div>
@@ -225,9 +258,9 @@
           </p>
         </div>
 
-        <!-- Starter Formula Cards -->
+        <!-- Starter Formula Cards (4 MOSS-5B Anti-Plastic Golden Prompts) -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full pt-2 text-left">
-          <button onclick="fillStarterPrompt('An unpolished, candid iPhone 16 Pro horizontal 16:9 snapshot at night on a city street, 24mm wide lens, deep depth of field f/5.6, natural skin micro-texture with fine vellus hair, zero airbrushing.', '16:9')" class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 hover:border-white/25 hover:bg-white/[0.05] transition-all">
+          <button type="button" data-ratio="16:9" data-prompt="An unpolished, candid iPhone 16 Pro snapshot, horizontal 16:9 eye-level medium shot, 24mm wide-angle smartphone lens, deep depth of field with the entire night street in sharp focus, no artificial bokeh. A 25-year-old East Asian woman wearing a loose washed denim jacket over a grey cotton tee sits on a red plastic stool at a bustling night market stall, caught mid-laugh holding bamboo chopsticks over a bowl of steaming noodles. Unretouched raw skin with visible micro-pores across cheeks and nose bridge, fine vellus facial hairs catching streetlamp light, soft matte T-zone sheen, subtle natural under-eye shadows, slight natural facial asymmetry, zero beauty filter. Behind her in sharp focus, a warm glowing storefront sign clearly reads &quot;老街夜宵&quot; beside stacked beverage crates, electric scooters, and hanging bare tungsten bulbs, subtle smartphone CMOS sensor grain, raw documentary realism." onclick="fillStarterPrompt(this.dataset.prompt, this.dataset.ratio)" class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 hover:border-white/25 hover:bg-white/[0.05] transition-all">
             <div class="flex items-center justify-between mb-1">
               <span class="text-xs font-semibold text-white">iPhone 16 Pro Candid</span>
               <span class="text-[10px] font-mono text-emerald-400">16:9 · 1344×768</span>
@@ -235,14 +268,38 @@
             <p class="text-[11px] text-white/50 line-clamp-2">Raw unedited 24mm f/5.6 deep focus smartphone photography with physiological skin texture.</p>
           </button>
 
-          <button onclick="fillStarterPrompt('Candid 35mm cinematic portrait photography shot on Leica M6 with a 50mm lens at f/1.8, natural golden hour sunlight, authentic skin pores and fine facial vellus hair, subtle Kodak Portra 400 organic film grain.', '9:16')" class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 hover:border-white/25 hover:bg-white/[0.05] transition-all">
+          <button type="button" data-ratio="9:16" data-prompt="An unpolished, candid iPhone 16 Pro snapshot, vertical 9:16 eye-level medium waist-up shot, 24mm wide-angle lens, deep depth of field with the entire room in sharp focus, no artificial bokeh. A single solo 26-year-old Chinese woman with slight natural facial asymmetry and dark hair loosely clipped back with stray wisps falling across her temple, wearing an off-white chunky ribbed knit cardigan with natural wool weave and gravity folds. Unretouched raw skin with visible micro-pores, fine vellus facial hairs along the jawline, natural skin oils with a soft matte sheen on the nose bridge, subtle under-eye shadows, and realistic dry lip texture with zero beauty filter. Caught mid-sentence leaning one elbow on a lived-in wooden cafe table beside a half-empty iced coffee cup, paper napkins, and a tangled white charging cable, illuminated by overcast window daylight mixed with warm indoor ceiling lamps, subtle CMOS sensor grain." onclick="fillStarterPrompt(this.dataset.prompt, this.dataset.ratio)" class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 hover:border-white/25 hover:bg-white/[0.05] transition-all">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-semibold text-white">Afternoon Window Candid</span>
+              <span class="text-[10px] font-mono text-emerald-400">9:16 · 896×1152</span>
+            </div>
+            <p class="text-[11px] text-white/50 line-clamp-2">Unposed 9:16 smartphone snapshot with micro-pores, fine vellus hair, natural fabric folds, and lived-in desk clutter.</p>
+          </button>
+
+          <button type="button" data-ratio="16:9" data-prompt="Unpolished candid 35mm documentary photograph, raw unprocessed Kodak Portra 400 film scan, natural outdoor depth of field with the entire wet street alley in sharp focus, zero CGI smoothness. After an evening rain shower in an old East Asian backstreet, puddles reflect warm amber shop windows and weathered painted signage clearly reading &quot;深夜珈琲&quot;, tangled overhead power lines, damp brick walls, bicycles parked along the curb, and a passerby walking away holding a clear vinyl umbrella, authentic grain and gritty everyday documentary realism." onclick="fillStarterPrompt(this.dataset.prompt, this.dataset.ratio)" class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 hover:border-white/25 hover:bg-white/[0.05] transition-all">
             <div class="flex items-center justify-between mb-1">
               <span class="text-xs font-semibold text-white">Leica M6 35mm Documentary</span>
-              <span class="text-[10px] font-mono text-emerald-400">9:16 · 896×1152</span>
+              <span class="text-[10px] font-mono text-emerald-400">16:9 · 1344×768</span>
             </div>
             <p class="text-[11px] text-white/50 line-clamp-2">50mm f/1.8 optical depth with organic Kodak Portra film grain and zero plastic retouching.</p>
           </button>
+
+          <button type="button" data-ratio="1:1" data-prompt="An unpolished candid everyday photograph, 28mm natural perspective, deep depth of field with everything in crisp focus, no artificial bokeh. Warm late-afternoon sunlight streaming across a lived-in wooden table near an open window, casting crisp shadows across a handmade speckled ceramic mug with tea stains, an open worn paperback book, reading glasses, and raw travertine stone coasters. Authentic dust motes, natural wood grain imperfections, subtle film grain, empty environment scene, no people, no characters in frame." onclick="fillStarterPrompt(this.dataset.prompt, this.dataset.ratio)" class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 hover:border-white/25 hover:bg-white/[0.05] transition-all">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-semibold text-white">Raw Natural Light Still Life</span>
+              <span class="text-[10px] font-mono text-emerald-400">1:1 · 1024×1024</span>
+            </div>
+            <p class="text-[11px] text-white/50 line-clamp-2">Candid afternoon sunlight on ceramic mugs and books in sharp deep focus, empty environment with zero CGI smoothness.</p>
+          </button>
         </div>
+      </div>
+
+      <!-- Load More Button for Paginated Cloud History -->
+      <div id="loadMoreWrap" class="mx-auto mb-4 hidden max-w-2xl text-center">
+        <button id="loadMoreBtn" type="button" onclick="loadMoreImages()" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 py-1.5 text-xs text-white/75 hover:bg-white/10 hover:text-white transition-colors">
+          <span>Load earlier images</span>
+          <span id="loadMoreCount" data-i18n-skip class="font-mono text-[11px] text-white/45"></span>
+        </button>
       </div>
 
       <!-- Active Job Progress Card -->
@@ -269,16 +326,25 @@
     <!-- ======================= 3. BOTTOM FLOATING PROMPT COMPOSER DOCK ======================= -->
     <div class="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex flex-col items-center px-4 pb-4 pt-6 bg-gradient-to-t from-[#0b0b0d] via-[#0b0b0d]/90 to-transparent">
 
-      <!-- Quick Style Tag Pills -->
+      <!-- Quick Style Tag Pills (MOSS-Image 5B Anti-Plastic & Native Text Engineering) -->
       <div class="pointer-events-auto mb-2.5 flex items-center gap-1.5 overflow-x-auto max-w-3xl scrollbar-hide py-0.5">
-        <button onclick="appendPromptFormula('Raw unedited iPhone 16 Pro candid photo, 24mm wide lens, f/5.6 deep depth of field, natural skin micro-texture with fine vellus hair, zero airbrushing')" class="shrink-0 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-white/70 hover:border-white/30 hover:text-white transition-all">
-          + iPhone 16 Pro Candid
+        <button type="button" data-mode="prepend" data-formula="An unpolished, candid iPhone 16 Pro snapshot, raw unedited everyday photography, 24mm wide-angle smartphone lens, deep depth of field with everything in sharp focus, ordinary ambient lighting, subtle CMOS sensor grain, no artificial bokeh" onclick="appendPromptFormula(this.dataset.formula, this.dataset.mode)" class="shrink-0 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-white/75 hover:border-emerald-400/40 hover:text-white transition-all">
+          + Raw Phone Snapshot
         </button>
-        <button onclick="appendPromptFormula('Candid 35mm cinematic portrait shot on Leica M6 with 50mm f/1.8 lens, natural Kodak Portra 400 grain, physiological skin pores')" class="shrink-0 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-white/70 hover:border-white/30 hover:text-white transition-all">
-          + Leica M6 35mm Film
+        <button type="button" data-mode="append" data-formula="unretouched raw skin with visible micro-pores across cheeks and nose bridge, fine vellus facial hairs catching light along the jawline, natural skin oils with a soft matte T-zone sheen, subtle natural under-eye shadows, slight natural facial asymmetry, zero beauty filter, no airbrushing" onclick="appendPromptFormula(this.dataset.formula, this.dataset.mode)" class="shrink-0 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-white/75 hover:border-emerald-400/40 hover:text-white transition-all">
+          + Real Skin 5-Cues
         </button>
-        <button onclick="appendPromptFormula('16:9 widescreen cinematic frame, anamorphic lens, dramatic volumetric lighting, high contrast')" class="shrink-0 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-white/70 hover:border-white/30 hover:text-white transition-all">
-          + 16:9 Cinema Frame
+        <button type="button" data-mode="prepend" data-formula="Unpolished candid 35mm documentary photograph, raw unprocessed Kodak Portra 400 film scan, natural outdoor depth of field, lived-in background in sharp focus, gritty documentary realism, zero CGI smoothness" onclick="appendPromptFormula(this.dataset.formula, this.dataset.mode)" class="shrink-0 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-white/75 hover:border-emerald-400/40 hover:text-white transition-all">
+          + 35mm Raw Film
+        </button>
+        <button type="button" data-mode="append" data-formula="caught mid-motion in a relaxed unposed everyday moment, natural candid posture with weight shifted slightly, ordinary lived-in surroundings with realistic everyday clutter in sharp focus" onclick="appendPromptFormula(this.dataset.formula, this.dataset.mode)" class="shrink-0 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-white/75 hover:border-emerald-400/40 hover:text-white transition-all">
+          + Lived-in Anti-Pose
+        </button>
+        <button type="button" data-mode="append" data-formula="a realistic illuminated storefront sign clearly reading &quot;深夜食堂&quot; in crisp weathered lettering naturally integrated into the scene" onclick="appendPromptFormula(this.dataset.formula, this.dataset.mode)" class="shrink-0 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-white/75 hover:border-emerald-400/40 hover:text-white transition-all">
+          + Quoted Text Sign
+        </button>
+        <button type="button" data-mode="prepend" data-formula="Raw unedited high-angle outdoor CCTV security camera footage frame, 720p surveillance camera quality, muted desaturated cool slate-grey tones, deep depth of field with entire ground in sharp focus, white pixelated OSD text in top-left corner clearly reading &quot;CAM 08&quot;" onclick="appendPromptFormula(this.dataset.formula, this.dataset.mode)" class="shrink-0 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-white/75 hover:border-emerald-400/40 hover:text-white transition-all">
+          + Raw CCTV Frame
         </button>
       </div>
 
@@ -335,8 +401,12 @@
   </main>
 
   <!-- Lightbox Modal -->
-  <div id="lightboxModal" onclick="this.classList.add('hidden'); this.classList.remove('flex');" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 backdrop-blur-xl p-4 cursor-zoom-out">
-    <img id="lightboxImg" src="" alt="Full resolution preview" class="max-h-[90vh] max-w-[92vw] rounded-2xl border border-white/15 shadow-2xl object-contain" />
+  <div id="lightboxModal" onclick="if(event.target===this) closeLightbox()" class="fixed inset-0 z-50 hidden flex-col items-center justify-center gap-3 bg-black/90 backdrop-blur-xl p-4 cursor-zoom-out">
+    <img id="lightboxImg" src="" alt="Full resolution preview" class="max-h-[84vh] max-w-[92vw] rounded-2xl border border-white/15 shadow-2xl object-contain cursor-default" />
+    <div class="flex items-center gap-2 cursor-default">
+      <a id="lightboxDownload" href="#" download="viora_output.png" class="rounded-xl border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-white/20 transition-colors">Download</a>
+      <button type="button" onclick="closeLightbox()" class="rounded-xl border border-white/15 bg-black/60 px-3.5 py-1.5 text-xs text-white/75 hover:bg-white/15 hover:text-white transition-colors">Close</button>
+    </div>
   </div>
 
   <!-- ======================= STANDALONE MOSS-5B API INTEGRATION ======================= -->
@@ -347,6 +417,66 @@
     let submitting = false;
     let queueCheckRunning = false;
     let queueState = { online: false, available: false, running: 0, pending: 0 };
+    let visibleImageLimit = 12;
+    let batchSelectMode = false;
+    const selectedImageIds = new Set();
+    const deleteConfirmTimers = new Map();
+    const INFLIGHT_MAX_AGE_MS = 15 * 60 * 1000;
+
+    function getInFlightStorageKey() {
+      return cloudUser?.id ? `viora_inflight_${cloudUser.id}` : null;
+    }
+
+    function persistInFlightJobs() {
+      const key = getInFlightStorageKey();
+      if (!key) return;
+      try {
+        if (!inFlightJobs.length) {
+          localStorage.removeItem(key);
+        } else {
+          localStorage.setItem(key, JSON.stringify(inFlightJobs));
+        }
+      } catch (_) {}
+    }
+
+    function restoreInFlightJobs() {
+      const key = getInFlightStorageKey();
+      if (!key) return;
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return;
+        const now = Date.now();
+        const savedIds = new Set((cachedImages || []).map(img => img.prompt_id));
+        const existingIds = new Set(inFlightJobs.map(j => j.prompt_id));
+        const restored = parsed.filter(job =>
+          job &&
+          typeof job.prompt_id === 'string' &&
+          job.prompt_id &&
+          !savedIds.has(job.prompt_id) &&
+          !existingIds.has(job.prompt_id) &&
+          (now - Number(job.startedAt || 0)) < INFLIGHT_MAX_AGE_MS
+        );
+        if (restored.length) {
+          inFlightJobs = [...inFlightJobs, ...restored];
+        }
+        persistInFlightJobs();
+      } catch (_) {}
+    }
+
+    function openAuthModal(fromGenerate = false) {
+      const subtitle = document.getElementById('cloudAuthSubtitle');
+      if (subtitle) {
+        const key = fromGenerate
+          ? 'Sign in to start generating — your prompt is saved.'
+          : 'Your images and history are saved privately to your account.';
+        subtitle.textContent = window.VioraI18n ? window.VioraI18n.text(key) : key;
+      }
+      showCloudAuth(true);
+      const userEl = document.getElementById('cloudUsername');
+      if (userEl) setTimeout(() => userEl.focus(), 20);
+    }
 
     async function initRealWorkspace() {
       const params = new URLSearchParams(window.location.search);
@@ -354,9 +484,28 @@
         document.getElementById('workspacePromptInput').value = params.get('prompt');
       }
       randomizeSeed();
-      await cloudInit();
-      await loadComfySettings();
-      await refreshWorkspaceImages();
+      // Parallel startup: check server queue & user session simultaneously so images never wait on slow gateway ping
+      const pingPromise = loadComfySettings();
+      const authPromise = cloudInit().then(async signedIn => {
+        if (signedIn) {
+          restoreInFlightJobs();
+          updateQueueView();
+          await refreshWorkspaceImages();
+          // Reconcile restored jobs against freshly loaded cloud history and resume polling immediately
+          const savedIds = new Set((cachedImages || []).map(img => img.prompt_id));
+          inFlightJobs = inFlightJobs.filter(j => !savedIds.has(j.prompt_id));
+          persistInFlightJobs();
+          if (inFlightJobs.length) {
+            renderRealFeed(cachedImages);
+            scrollToBottom(true);
+            pollActiveJobs();
+          }
+        } else {
+          updateQueueView();
+          renderRealFeed([]);
+        }
+      });
+      await Promise.all([pingPromise, authPromise]);
       setInterval(pollActiveJobs, 2000);
       setInterval(loadComfySettings, 4000);
     }
@@ -381,7 +530,12 @@
       document.getElementById('queueNotice').textContent = label;
       document.getElementById('queueStatusLabel').textContent = label;
       const btn = document.getElementById('workspaceGenBtn');
-      btn.disabled = submitting || !cloudUser || !queueState.available || busy || inFlightJobs.some(job => job.status !== 'SAVING');
+      if (!cloudUser) {
+        btn.disabled = submitting;
+      } else {
+        btn.disabled = submitting || !queueState.available || busy || inFlightJobs.some(job => job.status !== 'SAVING');
+      }
+      updateGalleryToolbar();
     }
     document.addEventListener('viora-language-change', updateQueueView);
 
@@ -430,9 +584,7 @@
       }
     }
 
-    function aspectBoxClasses(ratio) {
-      if (ratio === '9:16') return 'aspect-[9/16] w-[190px]';
-      if (ratio === '1:1') return 'aspect-square w-[230px]';
+    function aspectBoxClasses() {
       return 'aspect-[16/9] w-[320px]';
     }
 
@@ -519,11 +671,73 @@
       }
     }
 
+    function t(key) {
+      return window.VioraI18n ? window.VioraI18n.text(key) : key;
+    }
+
+    function updateGalleryToolbar() {
+      const sidebarActions = document.getElementById('sidebarGalleryActions');
+      const sidebarCount = document.getElementById('sidebarImageCount');
+      const sidebarClearBtn = document.getElementById('sidebarClearAllBtn');
+      const total = cachedImages.length;
+      if (!cloudUser || total === 0) {
+        if (sidebarActions) sidebarActions.classList.add('hidden');
+        return;
+      }
+      if (sidebarActions) sidebarActions.classList.remove('hidden');
+      if (sidebarCount) sidebarCount.textContent = String(total);
+      if (sidebarClearBtn && !sidebarClearBtn.disabled) {
+        const lbl = sidebarClearBtn.querySelector('[data-role="clear-label"]');
+        if (lbl) lbl.textContent = t('Clear all');
+      }
+    }
+
+    function setClearButtonLabel(btnEl, text) {
+      if (!btnEl) return;
+      const lbl = btnEl.querySelector('[data-role="clear-label"]');
+      if (lbl) lbl.textContent = text;
+      else btnEl.textContent = text;
+    }
+
+    async function clearAllWorkspaceImages(btnEl) {
+      if (!cloudUser || !cachedImages.length) return;
+      if (btnEl) {
+        btnEl.disabled = true;
+        setClearButtonLabel(btnEl, t('Clearing...'));
+      }
+      const prevImages = [...cachedImages];
+      try {
+        await cloudClearAll();
+        cachedImages = [];
+        visibleImageLimit = 12;
+        renderRealFeed(cachedImages);
+      } catch (error) {
+        console.error(error);
+        cachedImages = prevImages;
+        renderRealFeed(cachedImages);
+        alert(t('Unable to delete image. Please try again.'));
+      } finally {
+        if (btnEl) {
+          btnEl.disabled = false;
+          setClearButtonLabel(btnEl, t('Clear all'));
+        }
+      }
+    }
+
+    function loadMoreImages() {
+      visibleImageLimit += 12;
+      renderRealFeed(cachedImages);
+    }
+
     function renderRealFeed(images) {
       const emptyEl = document.getElementById('emptyCanvasState');
       const listEl = document.getElementById('generationFeedList');
       const bannerEl = document.getElementById('activeJobBanner');
+      const loadMoreWrap = document.getElementById('loadMoreWrap');
+      const loadMoreCount = document.getElementById('loadMoreCount');
       if (bannerEl) bannerEl.classList.add('hidden');
+
+      updateGalleryToolbar();
 
       const hasPending = inFlightJobs.length > 0;
       const hasImages = images && images.length > 0;
@@ -531,12 +745,23 @@
       if (!hasPending && !hasImages) {
         emptyEl.classList.remove('hidden');
         listEl.innerHTML = '';
+        if (loadMoreWrap) loadMoreWrap.classList.add('hidden');
         return;
       }
 
       emptyEl.classList.add('hidden');
 
-      const chronologicalImages = [...(images || [])].reverse();
+      const allImages = images || [];
+      const hiddenCount = Math.max(0, allImages.length - visibleImageLimit);
+      if (loadMoreWrap) {
+        loadMoreWrap.classList.toggle('hidden', hiddenCount === 0);
+        if (loadMoreCount && hiddenCount > 0) {
+          const zh = !window.VioraI18n || window.VioraI18n.language !== 'en';
+          loadMoreCount.textContent = zh ? `（还有 ${hiddenCount} 张）` : `(${hiddenCount} more)`;
+        }
+      }
+
+      const chronologicalImages = [...allImages.slice(0, visibleImageLimit)].reverse();
 
       const completedHtml = chronologicalImages.map(img => {
         const key = img.prompt_id || img.id;
@@ -544,8 +769,9 @@
         if (shouldUnblur) {
           setTimeout(() => freshlyCompletedIds.delete(key), 1000);
         }
+        const ratioClass = aspectBoxClasses(img.aspect_ratio);
         return `
-        <li class="space-y-2">
+        <li id="img-card-${escapeHtml(String(img.id || ''))}" class="space-y-2">
           <!-- Compact Metadata + Prompt Line -->
           <div class="flex items-center gap-2 text-[11px] font-mono text-white/40 select-text">
             <span class="text-emerald-400/90">Image created</span>
@@ -555,22 +781,24 @@
             <span>Seed ${img.seed || 42}</span>
             ${img.elapsed ? `<span>· ${img.elapsed}s</span>` : ''}
           </div>
-          <p data-i18n-skip class="text-xs text-white/65 line-clamp-1 max-w-xl select-text">${escapeHtml(img.prompt || '')}</p>
+          <p data-i18n-skip class="text-xs text-white/65 line-clamp-2 max-w-xl select-text">${escapeHtml(img.prompt || '')}</p>
 
-          <!-- Compact ChatGPT-sized Image Tile (Hover for Remix / Download / Delete, Click to Zoom) -->
-          <div class="group relative inline-block overflow-hidden rounded-2xl border border-white/10 bg-[#101014] shadow-xl">
-            <img src="${escapeHtml(img.media_url)}" alt="Generated Output" onclick="openLightbox(this.src)"
-              class="${shouldUnblur ? 'chatgpt-unblur-img ' : ''}max-h-[260px] max-w-[320px] w-auto h-auto rounded-2xl object-contain cursor-zoom-in transition-transform duration-300 group-hover:scale-[1.01]" />
+          <!-- Clean Rectangle Image Tile: Click anywhere to Zoom Lightbox, Hover for Remix / Download / Delete -->
+          <div class="group relative inline-block overflow-hidden rounded-2xl border border-white/10 bg-[#121217] shadow-xl ${ratioClass}">
+            <div data-role="skeleton" class="pointer-events-none absolute inset-0 animate-pulse bg-gradient-to-br from-white/[0.06] via-white/[0.02] to-white/[0.06]"></div>
+            <img src="${escapeHtml(img.media_url)}" alt="Generated Output" loading="lazy" decoding="async"
+              onload="this.classList.remove('opacity-0'); const sk=this.previousElementSibling; if(sk) sk.remove();"
+              onclick="openLightbox(this.src, '${escapeHtml(String(img.id || 'output'))}')"
+              class="${shouldUnblur ? 'chatgpt-unblur-img ' : ''}opacity-0 transition-opacity duration-300 h-full w-full rounded-2xl object-contain cursor-zoom-in group-hover:scale-[1.01]" />
 
-            <!-- Floating Hover Action Bar on Top-Right of the Image -->
             <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute top-2 right-2 flex items-center gap-1 rounded-xl bg-black/75 backdrop-blur-md border border-white/15 p-1 shadow-lg">
-              <button data-prompt="${escapeHtml(img.prompt || '')}" data-ratio="${escapeHtml(img.aspect_ratio || '16:9')}" onclick="fillStarterPrompt(this.dataset.prompt, this.dataset.ratio)" class="rounded-lg px-2 py-1 text-[11px] text-white/85 hover:bg-white/15 hover:text-white" title="Reuse Prompt">
+              <button type="button" data-prompt="${escapeHtml(img.prompt || '')}" data-ratio="${escapeHtml(img.aspect_ratio || '16:9')}" onclick="event.stopPropagation(); fillStarterPrompt(this.dataset.prompt, this.dataset.ratio)" class="rounded-lg px-2 py-1 text-[11px] text-white/85 hover:bg-white/15 hover:text-white" title="Reuse Prompt">
                 Remix
               </button>
-              <a href="${escapeHtml(img.media_url)}" download="viora_${img.id || 'output'}.png" class="rounded-lg px-2 py-1 text-[11px] text-white/85 hover:bg-white/15 hover:text-white" title="Download PNG">
+              <a href="${escapeHtml(img.media_url)}" download="viora_${escapeHtml(String(img.id || 'output'))}.png" onclick="event.stopPropagation()" class="rounded-lg px-2 py-1 text-[11px] text-white/85 hover:bg-white/15 hover:text-white" title="Download PNG">
                 ↓
               </a>
-              <button onclick="deleteWorkspaceImage('${img.id}')" class="rounded-lg px-2 py-1 text-[11px] text-red-400 hover:bg-red-500/20" title="Delete">
+              <button type="button" onclick="event.stopPropagation(); deleteWorkspaceImage('${escapeHtml(String(img.id || ''))}')" class="rounded-lg px-2 py-1 text-[11px] text-red-400 hover:bg-red-500/20" title="Delete">
                 ✕
               </button>
             </div>
@@ -586,7 +814,7 @@
 
     // Submit Real MOSS-Image 5B Job to Standalone FIFO Queue (/api/moss?action=prompt)
     async function submitRealMossGeneration() {
-      if (!cloudUser) { showCloudAuth(); return; }
+      if (!cloudUser) { openAuthModal(true); return; }
       if (submitting || !queueState.available || queueState.running || queueState.pending || inFlightJobs.some(job => job.status !== 'SAVING')) return;
       const promptInput = document.getElementById('workspacePromptInput');
       const submittedInput = promptInput.value;
@@ -642,18 +870,20 @@
           progress: 6,
           node: 'Creating image...'
         });
+        persistInFlightJobs();
 
         renderRealFeed(cachedImages);
         scrollToBottom(true);
         randomizeSeed();
-        await pollActiveJobs();
+        queueState = { ...queueState, running: Math.max(1, queueState.running) };
+        void pollActiveJobs();
       } catch (err) {
         console.error('Generation error:', err);
         alert(window.VioraI18n.text('Generation could not be started. Please try again.'));
       } finally {
         submitting = false;
         updateQueueView();
-        loadComfySettings();
+        void loadComfySettings();
         btn.innerHTML = `<span>Generate</span><kbd class="rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-mono font-medium text-black/65">Ctrl+↵</kbd>`;
       }
     }
@@ -681,18 +911,44 @@
     }
 
     window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeLightbox();
+        closeCloudAuth();
+        return;
+      }
       if (isCtrlEnterEvent(event)) {
         event.preventDefault();
         submitRealMossGeneration();
       }
     });
 
+    async function copyImagePrompt(btn) {
+      const text = btn?.dataset?.prompt || '';
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        const span = btn.querySelector('span');
+        if (span) {
+          span.textContent = t('Copied');
+          setTimeout(() => { span.textContent = t('Copy'); }, 1500);
+        }
+      } catch (_) {}
+    }
+
     async function deleteWorkspaceImage(imageId) {
+      // Optimistic immediate deletion on single click
+      const prevImages = [...cachedImages];
+      selectedImageIds.delete(imageId);
+      cachedImages = cachedImages.filter(img => img.id !== imageId);
+      renderRealFeed(cachedImages);
       try {
         await cloudDelete(imageId);
-        await refreshWorkspaceImages(false);
-      } catch (error) { console.error(error); alert(window.VioraI18n.text('Unable to delete image. Please try again.')); }
-
+      } catch (error) {
+        console.error(error);
+        cachedImages = prevImages;
+        renderRealFeed(cachedImages);
+        alert(t('Unable to delete image. Please try again.'));
+      }
     }
 
     async function pollActiveJobs() {
@@ -704,6 +960,7 @@
       let completedAny = false;
 
       for (const job of inFlightJobs) {
+        if ((Date.now() - Number(job.startedAt || 0)) >= INFLIGHT_MAX_AGE_MS) continue;
         try {
           const res = await fetch(`/api/moss?action=status&prompt_id=${encodeURIComponent(job.prompt_id)}`);
           if (!res.ok) {
@@ -734,6 +991,7 @@
       }
 
       inFlightJobs = remaining;
+      persistInFlightJobs();
       if (completedAny) {
         await refreshWorkspaceImages(true);
       } else {
@@ -751,17 +1009,42 @@
       document.getElementById('workspacePromptInput').focus();
     }
 
-    function appendPromptFormula(text) {
+    function appendPromptFormula(text, mode = 'append') {
       const input = document.getElementById('workspacePromptInput');
-      input.value = input.value.trim() ? `${input.value.trim()}, ${text}` : text;
+      const current = input.value.trim();
+      const snippet = (text || '').trim();
+      if (!snippet) return;
+      if (current.includes(snippet)) {
+        input.focus();
+        return;
+      }
+      if (!current) {
+        input.value = snippet;
+      } else if (mode === 'prepend') {
+        input.value = `${snippet}. ${current}`;
+      } else {
+        input.value = `${current.replace(/[.,;，。；]+$/, '')}, ${snippet}`;
+      }
       input.focus();
     }
 
-    function openLightbox(src) {
+    function openLightbox(src, id = 'output') {
       document.getElementById('lightboxImg').src = src;
+      const dl = document.getElementById('lightboxDownload');
+      if (dl) {
+        dl.href = src;
+        dl.download = `viora_${id}.png`;
+      }
       const m = document.getElementById('lightboxModal');
       m.classList.remove('hidden');
       m.classList.add('flex');
+    }
+
+    function closeLightbox() {
+      const m = document.getElementById('lightboxModal');
+      if (!m) return;
+      m.classList.add('hidden');
+      m.classList.remove('flex');
     }
 
     function toggleLeftSidebar() {
@@ -774,6 +1057,8 @@
       } else {
         sb.style.width = '224px';
         labels.forEach(el => el.classList.remove('hidden'));
+        showCloudAuth(false);
+        updateGalleryToolbar();
       }
     }
 
