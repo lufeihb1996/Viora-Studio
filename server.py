@@ -328,6 +328,14 @@ async def generate_page():
     return FileResponse(PUBLIC_DIR / "generate.html", headers={"Cache-Control": "no-store"})
 
 
+@app.get("/favicon.ico")
+async def favicon_ico():
+    path = PUBLIC_DIR / "favicon.ico"
+    if not path.is_file():
+        raise HTTPException(404, "Not found")
+    return FileResponse(path, media_type="image/x-icon")
+
+
 async def _generation_lease(request: Request, action: str, lease: str | None = None) -> str | None:
     authorization = request.headers.get("authorization", "")
     if not re.fullmatch(r"Bearer [A-Za-z0-9._-]+", authorization):
