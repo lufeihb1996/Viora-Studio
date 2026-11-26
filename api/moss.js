@@ -138,6 +138,25 @@ async function generationLease(req, action, lease = null) {
   return value;
 }
 
+function extractHistoryElapsed(entry) {
+  const messages = entry?.status?.messages;
+  if (!Array.isArray(messages)) return null;
+  let startTs = null;
+  let endTs = null;
+  for (const msg of messages) {
+    if (!Array.isArray(msg) || msg.length < 2) continue;
+    const [type, payload] = msg;
+    const ts = Number(payload?.timestamp);
+    if (!Number.isFinite(ts) || ts <= 0) continue;
+    if (type === "execution_start" && startTs === null) startTs = ts;
+    if (type === "execution_success" || type === "execution_cached") endTs = ts;
+  }
+  if (startTs !== null && endTs !== null && endTs >= startTs) {
+    return Number(Math.max(0.1, (endTs - startTs) / 1000).toFixed(1));
+  }
+  return null;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
@@ -262,14 +281,17 @@ module.exports = async function handler(req, res) {
             const images = nodeOut && nodeOut.images;
             if (Array.isArray(images) && images.length > 0) {
               const viewParams = new URLSearchParams({ action: "view", prompt_id: promptId });
+              const elapsed = extractHistoryElapsed(entry);
+              const item = {
+                id: `moss_${Date.now()}`,
+                prompt_id: promptId,
+                media_url: `/api/moss?${viewParams.toString()}`,
+              };
+              if (elapsed !== null) item.elapsed = elapsed;
               return res.status(200).json({
                 status: "DONE",
                 progress: 100,
-                item: {
-                  id: `moss_${Date.now()}`,
-                  prompt_id: promptId,
-                  media_url: `/api/moss?${viewParams.toString()}`,
-                },
+                item,
               });
             }
           }

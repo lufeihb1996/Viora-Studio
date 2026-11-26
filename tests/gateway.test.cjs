@@ -95,3 +95,14 @@ test('submission requires authenticated user token',async()=>{
   await handler({url:'/api/moss?action=prompt',method:'POST',body:{prompt:'x'},headers:{}},output);
   assert.equal(output.statusCode,401);
 });
+test('status extracts GPU elapsed seconds from ComfyUI history timestamps',async()=>{
+  setupGateway();const prior=global.fetch;
+  global.fetch=async(url,opts)=>{
+    const p=new URL(url);
+    if(p.pathname==='/history/job-123') return new Response(JSON.stringify({'job-123':{status:{messages:[['execution_start',{timestamp:10000}],['execution_success',{timestamp:14820}]]},outputs:{'10':{images:[{filename:'out.png',subfolder:'',type:'output'}]}}}}));
+    return prior(url,opts);
+  };
+  const status=await invoke('/api/moss?action=status&prompt_id=job-123');
+  assert.equal(status.body.status,'DONE');
+  assert.equal(status.body.item.elapsed,4.8);
+});

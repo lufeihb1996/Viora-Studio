@@ -168,7 +168,9 @@ async function cloudSave(job, item) {
   const { error: uploadError } = await cloudClient.storage.from('moss-images').upload(storagePath, blob, { contentType: 'image/png', upsert: true });
   if (uploadError) throw uploadError;
   signedUrlCache.delete(storagePath);
-  const row = { user_id: cloudUser.id, prompt_id: job.prompt_id, storage_path: storagePath, prompt: job.prompt, aspect_ratio: job.aspect_ratio, width: job.width, height: job.height, steps: job.steps, cfg: job.cfg, seed: job.seed, elapsed: item.elapsed || null };
+  const rawElapsed = Number(item.elapsed) > 0 ? Number(item.elapsed) : Number(job.elapsed);
+  const elapsed = Number.isFinite(rawElapsed) && rawElapsed > 0 ? Number(rawElapsed.toFixed(1)) : null;
+  const row = { user_id: cloudUser.id, prompt_id: job.prompt_id, storage_path: storagePath, prompt: job.prompt, aspect_ratio: job.aspect_ratio, width: job.width, height: job.height, steps: job.steps, cfg: job.cfg, seed: job.seed, elapsed };
   const { error } = await cloudClient.from('moss_images').upsert(row, { onConflict: 'user_id,prompt_id' });
   if (error) throw error;
 }

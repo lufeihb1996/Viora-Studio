@@ -25,9 +25,10 @@ function setup() {
 const job = { prompt_id: 'task-1', prompt: 'test prompt', aspect_ratio: '1:1', width: 1024, height: 1024, steps: 35, cfg: 2.8, seed: 42 };
 test('saves image and metadata to account-specific storage, lists signed image, deletes both', async () => {
   const { context, state } = setup();
-  await context.cloudSave(job, { media_url: '/image.png' });
+  await context.cloudSave({ ...job, elapsed: 5.2 }, { media_url: '/image.png' });
   assert.equal(state.rows.length, 1);
   assert.equal(state.rows[0].user_id, 'test-user');
+  assert.equal(state.rows[0].elapsed, 5.2);
   assert.match(state.rows[0].storage_path, /^test-user\/[0-9a-f]{64}\.png$/);
   assert.equal(state.objects.size, 1);
   assert.match((await context.cloudList())[0].media_url, /^https:\/\/example.test\/signed\//);
