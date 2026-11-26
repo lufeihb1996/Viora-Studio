@@ -33,6 +33,9 @@ function showCloudAuth(forceOpen = false) {
   if (topGuestBtn) topGuestBtn.classList.toggle('hidden', !!cloudUser);
   const guestBanner = document.getElementById('guestBanner');
   if (guestBanner) guestBanner.classList.toggle('hidden', !!cloudUser);
+  if (window.VioraPresence && typeof window.VioraPresence.syncVisibility === 'function') {
+    window.VioraPresence.syncVisibility(cloudUser);
+  }
 }
 
 function closeCloudAuth() {

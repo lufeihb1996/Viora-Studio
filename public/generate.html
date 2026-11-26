@@ -13,8 +13,8 @@
   <script src="/assets/i18n.js?v=5"></script>
   <script src="/assets/supabase.js"></script>
   <script src="/assets/supabase-config.js"></script>
-  <script src="/assets/cloud.js?v=4"></script>
-  <script src="/assets/presence.js?v=1"></script>
+  <script src="/assets/cloud.js?v=5"></script>
+  <script src="/assets/presence.js?v=2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -197,7 +197,7 @@
           <span class="text-white/60">Engine</span>
           <span class="font-mono text-[11px] font-semibold text-emerald-400">Viora Studio</span>
         </div>
-        <div class="flex items-center justify-between text-[11px]">
+        <div data-online-container style="display:none" class="hidden flex items-center justify-between text-[11px]">
           <span class="text-white/50">Online</span>
           <span class="inline-flex items-center gap-1.5 font-mono text-emerald-300">
             <span class="size-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -230,7 +230,7 @@
       <div class="flex items-center gap-2 shrink-0">
         <button id="topGuestSignInBtn" type="button" onclick="openAuthModal()" class="hidden whitespace-nowrap inline-flex h-9 items-center rounded-xl bg-white px-3 text-xs font-medium text-black hover:bg-white/90 transition-colors">Sign in / Register</button>
         <button type="button" onclick="VioraI18n.toggle()" class="whitespace-nowrap inline-flex h-9 items-center rounded-xl border border-white/10 px-3 text-xs text-white/80 hover:bg-white/10">中文 / EN</button>
-        <div title="Live online users" class="whitespace-nowrap inline-flex h-9 items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-3 text-xs font-medium text-emerald-200">
+        <div data-online-container style="display:none" title="Live online users" class="hidden whitespace-nowrap inline-flex h-9 items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-3 text-xs font-medium text-emerald-200">
           <span class="relative flex size-2 shrink-0">
             <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
             <span class="relative inline-flex size-2 rounded-full bg-emerald-400"></span>

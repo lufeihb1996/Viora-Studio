@@ -3,7 +3,9 @@
 
   const CHANNEL_NAME = 'viora_live_presence';
   const VISITOR_STORAGE_KEY = 'viora_visitor_id';
+  const ADMIN_EMAIL = 'xr110@viora.local.invalid';
   let onlineCount = 1;
+  let canViewOnline = false;
   let channel = null;
   let reconnectTimer = null;
 
@@ -17,6 +19,11 @@
       window.MOSS_SUPABASE.key
     );
     return window.__vioraSupabaseClient;
+  }
+
+  function isAuthorizedViewer(user) {
+    const email = String(user?.email || '').trim().toLowerCase();
+    return email === ADMIN_EMAIL;
   }
 
   function getVisitorId() {
@@ -39,6 +46,11 @@
   }
 
   function renderOnlineBadges() {
+    document.querySelectorAll('[data-online-container]').forEach(el => {
+      el.classList.toggle('hidden', !canViewOnline);
+      el.style.display = canViewOnline ? '' : 'none';
+    });
+    if (!canViewOnline) return;
     const text = formatOnlineText(onlineCount);
     document.querySelectorAll('[data-online-label]').forEach(el => {
       el.textContent = text;
@@ -46,6 +58,30 @@
     document.querySelectorAll('[data-online-count]').forEach(el => {
       el.textContent = String(onlineCount);
     });
+  }
+
+  function updateViewerUser(user) {
+    canViewOnline = isAuthorizedViewer(user);
+    renderOnlineBadges();
+  }
+
+  function initAuthVisibility() {
+    const client = getSharedSupabaseClient();
+    if (!client || !client.auth) return;
+    if (typeof client.auth.getSession === 'function') {
+      Promise.resolve(client.auth.getSession())
+        .then(res => updateViewerUser(res?.data?.session?.user || null))
+        .catch(() => {});
+    } else if (typeof client.auth.getUser === 'function') {
+      Promise.resolve(client.auth.getUser())
+        .then(res => updateViewerUser(res?.data?.user || null))
+        .catch(() => {});
+    }
+    if (typeof client.auth.onAuthStateChange === 'function') {
+      client.auth.onAuthStateChange((_event, session) => {
+        updateViewerUser(session?.user || null);
+      });
+    }
   }
 
   function syncPresenceCount() {
@@ -98,18 +134,22 @@
     }
   });
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      renderOnlineBadges();
-      connectPresence();
-    });
-  } else {
+  function boot() {
     renderOnlineBadges();
+    initAuthVisibility();
     connectPresence();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
   }
 
   window.VioraPresence = {
     get count() { return onlineCount; },
+    get visible() { return canViewOnline; },
+    syncVisibility: updateViewerUser,
     refresh: syncPresenceCount
   };
 })();
