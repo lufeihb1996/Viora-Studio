@@ -1,5 +1,5 @@
 'use strict';
-const cloudClient = window.supabase.createClient(window.MOSS_SUPABASE.url, window.MOSS_SUPABASE.key);
+const cloudClient = window.__vioraSupabaseClient || (window.__vioraSupabaseClient = window.supabase.createClient(window.MOSS_SUPABASE.url, window.MOSS_SUPABASE.key));
 let cloudUser = null;
 const signedUrlCache = new Map();
 const SIGNED_URL_TTL_SEC = 3600;

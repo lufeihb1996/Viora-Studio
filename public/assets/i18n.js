@@ -32,7 +32,7 @@
     'Username: 3–24 letters, numbers, or underscores. Password: at least 8 characters.': '用户名为 3–24 位英文字母、数字或下划线；密码至少 8 位。',
     'Sign in': '登录', 'Create account': '注册', 'Home': '首页', 'Create images': '图像创作', 'Engine': '创作工具',
     'Queue: Idle': '队列：空闲', 'Queue: Idle (0 waiting)': '队列：空闲（无等待任务）', 'Sign out': '退出登录',
-    'Model': '创作工具', 'Server status': '服务状态', 'Server online': '服务在线', 'Server offline': '服务离线',
+    'Model': '创作工具', 'Online': '实时在线', 'Server status': '服务状态', 'Server online': '服务在线', 'Server offline': '服务离线',
     'Create images with Viora Studio': '用 Viora Studio 创作图像',
     'Describe your idea below or choose a prompt to start creating.': '在下方描述你的创意，或选择一个示例开始创作。',
     'iPhone 16 Pro Candid': '原相机夜市抓拍', 'Leica M6 35mm Documentary': '35mm 纪实胶片街拍',
@@ -122,7 +122,7 @@
   const attributes = { 'Previous style':'上一种风格', 'Next style':'下一种风格', 'Style preview':'风格预览',
     'Portrait Realism':'写实人像', 'Optical Still Life':'静物作品', 'Editorial Fashion':'时尚作品', 'Architectural Interior':'建筑室内',
     'Start building':'开始创作', 'Footer visual':'页脚图片', 'Full resolution preview':'原图预览',
-    'Toggle Sidebar':'切换侧边栏', 'Refresh Feed':'刷新作品', 'Random Seed':'随机种子', 'Shortcut: Ctrl + Enter':'快捷键：Ctrl + Enter',
+    'Toggle Sidebar':'切换侧边栏', 'Refresh Feed':'刷新作品', 'Live online users':'当前实时在线人数', 'Random Seed':'随机种子', 'Shortcut: Ctrl + Enter':'快捷键：Ctrl + Enter',
     'Describe the image you want to create... (Ctrl + Enter to generate)':'描述你想创作的画面……（Ctrl + Enter 生成）',
     'Reuse Prompt':'复用提示词', 'Download PNG':'下载 PNG', 'Delete':'删除', 'Generated Output':'生成的图像',
     'Username':'用户名', 'Password':'密码' };
